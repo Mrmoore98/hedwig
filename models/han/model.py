@@ -14,6 +14,7 @@ class HAN(nn.Module):
         self.sentence_attention_rnn = SentLevelRNN(config)
 
     def forward(self, x,  **kwargs):
+
         x = x.permute(1, 2, 0) # Expected : # sentences, # words, batch size
         num_sentences = x.size(0)
         word_attentions = None

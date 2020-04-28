@@ -33,7 +33,11 @@ class ClassificationTrainer(Trainer):
         for batch_idx, batch in enumerate(self.train_loader):
             self.iterations += 1
             self.model.train()
-            self.optimizer.zero_grad()
+            if self.config['optimizer_warper']:
+                self.optimizer.optimizer.zero_grad() #for warper
+            else:
+                self.optimizer.zero_grad() #origin
+           
             if hasattr(self.model, 'tar') and self.model.tar:
                 if 'ignore_lengths' in self.config and self.config['ignore_lengths']:
                     scores, rnn_outs = self.model(batch.text)
@@ -52,10 +56,19 @@ class ClassificationTrainer(Trainer):
                         n_correct += 1
                 loss = F.binary_cross_entropy_with_logits(scores, batch.label.float())
             else:
-                for tensor1, tensor2 in zip(torch.argmax(scores, dim=1), torch.argmax(batch.label.data, dim=1)):
-                    if np.array_equal(tensor1, tensor2):
-                        n_correct += 1
-                loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=1))
+                    
+                if self.config['Binary']:
+                    # import pdb; pdb.set_trace()
+                    predictions = F.sigmoid(scores).round().long()
+                    for tensor1, tensor2 in zip(predictions, torch.argmax(batch.label.data, dim=1)):
+                        if np.array_equal(tensor1, tensor2):
+                            n_correct += 1
+                    loss = F.binary_cross_entropy_with_logits(scores, torch.argmax(batch.label.data, dim=1).type(torch.cuda.FloatTensor))
+                else:
+                    for tensor1, tensor2 in zip(torch.argmax(scores, dim=1), torch.argmax(batch.label.data, dim=1)):
+                        if np.array_equal(tensor1, tensor2):
+                            n_correct += 1
+                    loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=1))
 
             if hasattr(self.model, 'tar') and self.model.tar:
                 loss = loss + self.model.tar * (rnn_outs[1:] - rnn_outs[:-1]).pow(2).mean()
@@ -87,7 +100,7 @@ class ClassificationTrainer(Trainer):
         for epoch in range(1, epochs + 1):
             print('\n' + header)
             self.train_epoch(epoch)
-
+            print("Performing evluation!")
             # Evaluate performance on validation set
             dev_acc, dev_precision, dev_recall, dev_f1, dev_loss = self.dev_evaluator.get_scores()[0]
 

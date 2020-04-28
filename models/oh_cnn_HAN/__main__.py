@@ -11,13 +11,13 @@ from common.evaluate import EvaluatorFactory
 from common.train import TrainerFactory
 from datasets.aapd import AAPDHierarchical as AAPD
 from datasets.imdb import IMDBHierarchical as IMDB
-# from datasets.imdb_2 import IMDBHierarchical as IMDB_2
-# from datasets.imdb_stanford import IMDBHierarchical as IMDB_stanford
-# from datasets.reuters import ReutersHierarchical as Reuters
+from datasets.imdb_2 import IMDBHierarchical as IMDB_2
+from datasets.imdb_stanford import IMDBHierarchical as IMDB_stanford
+from datasets.reuters import ReutersHierarchical as Reuters
 from datasets.yelp2014 import Yelp2014Hierarchical as Yelp2014
-from models.han_modified.args import get_args
-from models.han_modified.model import HAN
-
+from models.oh_cnn_HAN.args import get_args
+from models.oh_cnn_HAN.model import One_hot_CNN
+from models.oh_cnn_HAN.one_hot_vector_preprocess import One_hot_vector
 
 class UnknownWordVecCache(object):
     """
@@ -31,6 +31,15 @@ class UnknownWordVecCache(object):
         if size_tup not in cls.cache:
             cls.cache[size_tup] = torch.Tensor(tensor.size())
             cls.cache[size_tup].uniform_(-0.25, 0.25)
+        return cls.cache[size_tup]
+    
+    
+    @classmethod
+    def unk_oh(cls, tensor):
+        size_tup = tuple(tensor.size())
+        if size_tup not in cls.cache:
+            cls.cache[size_tup] = torch.zeros(tensor.size())
+            # cls.cache[size_tup]
         return cls.cache[size_tup]
 
 
@@ -61,34 +70,6 @@ def evaluate_dataset(split_name, dataset_cls, model, embedding, loader, batch_si
 
 
 
-class NoamOpt:
-    "Optim wrapper that implements rate."
-    def __init__(self, model_size, factor, warmup, optimizer):
-        self.optimizer = optimizer
-        self._step = 0
-        self.warmup = warmup
-        self.factor = factor
-        self.model_size = model_size
-        self._rate = 0
-        
-    def step(self):
-        "Update parameters and rate"
-        self._step += 1
-        rate = self.rate()
-        for p in self.optimizer.param_groups:
-            p['lr'] = rate
-        self._rate = rate
-        self.optimizer.step()
-        
-    def rate(self, step = None):
-        "Implement `lrate` above"
-        if step is None:
-            step = self._step
-        return self.factor * \
-            (self.model_size ** (-0.5) *
-            min(step ** (-0.5), step * self.warmup ** (-1.5)))
-        
-
 
 if __name__ == '__main__':
     # Set default configuration in args.py
@@ -111,34 +92,49 @@ if __name__ == '__main__':
         print('Warning: Using CPU for training')
 
     dataset_map = {
-        # 'Reuters': Reuters,
-        # 'AAPD': AAPD,
+        'Reuters': Reuters,
+        'AAPD': AAPD,
         'IMDB': IMDB,
-        # 'Yelp2014': Yelp2014,
-        # 'IMDB_2':IMDB_2,
-        # 'IMDB_stanford':IMDB_stanford,
+        'Yelp2014': Yelp2014,
+        'IMDB_2':IMDB_2,
+        'IMDB_stanford':IMDB_stanford,
     }
+
+    # '''Notetice that these just a place holder. Thus, vector attributes of field is Null'''
+    # one_hot_vector = One_hot_vector()
+    
+    # Hyperparameters!
+    config = deepcopy(args)
+    config.output_channel = 100
+    config.input_channel = 30000
+    config.kernel_H = 1
+    config.kernel_W = 3
+    config.rnn_hidden_size = 50
+    config.max_size = 30000
+    config.fill_value = 1
+
+    
 
     if args.dataset not in dataset_map:
         raise ValueError('Unrecognized dataset')
-
     else:
         dataset_class = dataset_map[args.dataset]
         train_iter, dev_iter, test_iter = dataset_class.iters(args.data_dir,
-                                                              args.word_vectors_file,
-                                                              args.word_vectors_dir,
-                                                              batch_size=args.batch_size,
-                                                              device=args.gpu,
-                                                              unk_init=UnknownWordVecCache.unk)
+                                                            #   args.word_vectors_file,
+                                                            #   args.word_vectors_dir,
+                                                                batch_size=args.batch_size,
+                                                                device=args.gpu,
+                                                            #   unk_init=UnknownWordVecCache.unk_oh,  
+                                                            #   vectors = one_hot_vector
+                                                                onehot_Flag =True,
+                                                                max_size = config.max_size
+                                                              )
 
-    config = deepcopy(args)
     config.dataset = train_iter.dataset
     config.target_class = train_iter.dataset.NUM_CLASSES
     config.words_num = len(train_iter.dataset.TEXT_FIELD.vocab)
-    # config.residual = True    
-    config.residual = False
-    config.cnn = False
-    config.dropout_rate = 0.5
+    is_binary = True if config.target_class == 2 else False
+
 
     print('Dataset:', args.dataset)
     print('No. of target classes:', train_iter.dataset.NUM_CLASSES)
@@ -152,7 +148,11 @@ if __name__ == '__main__':
         else:
             model = torch.load(args.resume_snapshot, map_location=lambda storage, location: storage)
     else:
-        model = HAN(config)
+        model = One_hot_CNN(config)
+        if torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+            model = torch.nn.DataParallel(model)
         if args.cuda:
             model.cuda()
 
@@ -161,9 +161,11 @@ if __name__ == '__main__':
         os.makedirs(save_path, exist_ok=True)
 
     parameter = filter(lambda p: p.requires_grad, model.parameters())
-
-    optimizer = NoamOpt( 300, 2, 6000, torch.optim.Adam(parameter, lr=0, betas=(0.9, 0.98), eps=1e-9))
+    
+    #   
+    optimizer_warper = False
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.SGD(parameter, lr=args.lr, momentum=0.9)
     
     train_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, train_iter, args.batch_size, args.gpu)
     test_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, test_iter, args.batch_size, args.gpu)
@@ -180,6 +182,12 @@ if __name__ == '__main__':
     if hasattr(test_evaluator, 'ignore_lengths'):
         test_evaluator.ignore_lengths = True
 
+
+    if hasattr(dev_evaluator, 'ignore_lengths'):
+        dev_evaluator.is_binary = is_binary
+    if hasattr(test_evaluator, 'ignore_lengths'):
+        test_evaluator.is_binary = is_binary
+    is_binary = True if config.target_class == 2 else False
     trainer_config = {
         'optimizer': optimizer,
         'batch_size': args.batch_size,
@@ -188,7 +196,9 @@ if __name__ == '__main__':
         'model_outfile': args.save_path,
         'logger': logger,
         'is_multilabel': dataset_class.IS_MULTILABEL,
-        'ignore_lengths': True
+        'ignore_lengths': True,
+        'Binary': is_binary,
+        'optimizer_warper': optimizer_warper
     }
 
     trainer = TrainerFactory.get_trainer(args.dataset, model, None, train_iter, trainer_config, train_evaluator, test_evaluator, dev_evaluator)

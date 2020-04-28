@@ -10,6 +10,8 @@ from common.evaluate import EvaluatorFactory
 from common.train import TrainerFactory
 from datasets.aapd import AAPD
 from datasets.imdb import IMDB
+from datasets.imdb_stanford import IMDB_stanford
+from datasets.imdb_2 import IMDB_2
 from datasets.reuters import Reuters
 from datasets.yelp2014 import Yelp2014
 from models.reg_lstm.args import get_args
@@ -79,7 +81,9 @@ if __name__ == '__main__':
         'Reuters': Reuters,
         'AAPD': AAPD,
         'IMDB': IMDB,
-        'Yelp2014': Yelp2014
+        'Yelp2014': Yelp2014,
+        'IMDB_2':IMDB_2,
+        'IMDB_stanford':IMDB_stanford,
     }
 
     if args.dataset not in dataset_map:

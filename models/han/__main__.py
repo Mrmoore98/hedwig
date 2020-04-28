@@ -11,6 +11,8 @@ from common.evaluate import EvaluatorFactory
 from common.train import TrainerFactory
 from datasets.aapd import AAPDHierarchical as AAPD
 from datasets.imdb import IMDBHierarchical as IMDB
+from datasets.imdb_2 import IMDBHierarchical as IMDB_2
+from datasets.imdb_stanford import IMDBHierarchical as IMDB_stanford
 from datasets.reuters import ReutersHierarchical as Reuters
 from datasets.yelp2014 import Yelp2014Hierarchical as Yelp2014
 from models.han.args import get_args
@@ -58,6 +60,36 @@ def evaluate_dataset(split_name, dataset_cls, model, embedding, loader, batch_si
     print(scores)
 
 
+
+class NoamOpt:
+    "Optim wrapper that implements rate."
+    def __init__(self, model_size, factor, warmup, optimizer):
+        self.optimizer = optimizer
+        self._step = 0
+        self.warmup = warmup
+        self.factor = factor
+        self.model_size = model_size
+        self._rate = 0
+        
+    def step(self):
+        "Update parameters and rate"
+        self._step += 1
+        rate = self.rate()
+        for p in self.optimizer.param_groups:
+            p['lr'] = rate
+        self._rate = rate
+        self.optimizer.step()
+        
+    def rate(self, step = None):
+        "Implement `lrate` above"
+        if step is None:
+            step = self._step
+        return self.factor * \
+            (self.model_size ** (-0.5) *
+            min(step ** (-0.5), step * self.warmup ** (-1.5)))
+        
+
+
 if __name__ == '__main__':
     # Set default configuration in args.py
     args = get_args()
@@ -82,7 +114,9 @@ if __name__ == '__main__':
         'Reuters': Reuters,
         'AAPD': AAPD,
         'IMDB': IMDB,
-        'Yelp2014': Yelp2014
+        'Yelp2014': Yelp2014,
+        'IMDB_2':IMDB_2,
+        'IMDB_stanford':IMDB_stanford,
     }
 
     if args.dataset not in dataset_map:
@@ -101,6 +135,10 @@ if __name__ == '__main__':
     config.dataset = train_iter.dataset
     config.target_class = train_iter.dataset.NUM_CLASSES
     config.words_num = len(train_iter.dataset.TEXT_FIELD.vocab)
+    # config.residual = True    
+    config.residual = False
+    config.cnn = False
+    config.dropout_rate = 0.5
 
     print('Dataset:', args.dataset)
     print('No. of target classes:', train_iter.dataset.NUM_CLASSES)
@@ -123,7 +161,9 @@ if __name__ == '__main__':
         os.makedirs(save_path, exist_ok=True)
 
     parameter = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay)
+
+    optimizer = NoamOpt( 300, 2, 6000, torch.optim.Adam(parameter, lr=0, betas=(0.9, 0.98), eps=1e-9))
+    # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay)
     
     train_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, train_iter, args.batch_size, args.gpu)
     test_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, test_iter, args.batch_size, args.gpu)

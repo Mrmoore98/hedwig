@@ -10,6 +10,8 @@ class EvaluatorFactory(object):
         'Reuters': ClassificationEvaluator,
         'AAPD': ClassificationEvaluator,
         'IMDB': ClassificationEvaluator,
+        'IMDB_2': ClassificationEvaluator,
+        'IMDB_stanford': ClassificationEvaluator,
         'Yelp2014': ClassificationEvaluator,
         'Robust04': RelevanceTransferEvaluator,
         'Robust05': RelevanceTransferEvaluator,
