@@ -58,13 +58,12 @@ class One_hot_CNN(nn.Module):
         sentence_num  = input.shape[1]
         sentence_size = input.shape[2]
         stride        = 1
-        id            = 2
+        id            = 1
 
         use_RNN       = False
 
         input, weight_1, compress_size = getattr(self,'ver{}'.format(id))(input)
 
-        start_process = time.time()
         if use_RNN:
             conv1_out    = F.conv2d(input, weight_1, padding = self.height_same(input, self.kernel_H, sentence_num, stride))
             conv1_out    = self.relu(conv1_out)
@@ -84,6 +83,7 @@ class One_hot_CNN(nn.Module):
 
     def height_same(self, input, kernel_H, output_channel, stride=1):
         '''Only preserved height'''
+        input_size = input.shape[1]
         tmp_output_size = (input_size + stride - 1) / stride
         padding_needed  = max(0, (tmp_output_size - 1) * stride + kernel_H - input_size)
     

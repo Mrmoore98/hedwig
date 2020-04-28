@@ -59,10 +59,10 @@ class ClassificationTrainer(Trainer):
                     
                 if self.config['Binary']:
                     # import pdb; pdb.set_trace()
-                    predictions = F.sigmoid(scores).round().long()
-                    for tensor1, tensor2 in zip(predictions, torch.argmax(batch.label.data, dim=1)):
-                        if np.array_equal(tensor1, tensor2):
-                            n_correct += 1
+                    predictions  = F.sigmoid(scores).round().long().cpu().numpy()
+                    ground_truth = torch.argmax(batch.label.data, dim=1).cpu().numpy()
+                    n_correct   += np.sum(predictions == ground_truth)
+
                     loss = F.binary_cross_entropy_with_logits(scores, torch.argmax(batch.label.data, dim=1).type(torch.cuda.FloatTensor))
                 else:
                     for tensor1, tensor2 in zip(torch.argmax(scores, dim=1), torch.argmax(batch.label.data, dim=1)):
