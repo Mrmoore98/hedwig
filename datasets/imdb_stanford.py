@@ -7,7 +7,7 @@ from torchtext.data.iterator import BucketIterator
 from torchtext.vocab import Vectors
 
 from datasets.reuters import clean_string, split_sents, process_labels, generate_ngrams
-
+from models.oh_cnn_HAN.sentence_tokenize import Sentence_Tokenize
 
 def char_quantize(string, max_length=500):
     identity = np.identity(len(IMDBCharQuantized.ALPHABET))
@@ -23,7 +23,7 @@ class IMDB_stanford(TabularDataset):
     NUM_CLASSES = 2
     IS_MULTILABEL = False
 
-    TEXT_FIELD = Field(batch_first=True, tokenize=clean_string, include_lengths=True)
+    TEXT_FIELD = Field(batch_first=True, tokenize=clean_string)
     LABEL_FIELD = Field(sequential=False, use_vocab=False, batch_first=True, preprocessing=process_labels)
 
     @staticmethod
@@ -65,7 +65,7 @@ class IMDB_stanford(TabularDataset):
 
 class IMDBHierarchical(IMDB_stanford):
     NESTING_FIELD = Field(batch_first=True, tokenize=clean_string)
-    TEXT_FIELD = NestedField(NESTING_FIELD, tokenize=split_sents)
+    TEXT_FIELD = NestedField(NESTING_FIELD, tokenize=Sentence_Tokenize())
 
 
 class IMDBCharQuantized(IMDB_stanford):

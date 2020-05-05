@@ -7,6 +7,7 @@ from torchtext.data.iterator import BucketIterator
 from torchtext.vocab import Vectors
 
 from datasets.reuters import clean_string, split_sents, process_labels, generate_ngrams
+from models.oh_cnn_HAN.sentence_tokenize import Sentence_Tokenize
 
 
 def char_quantize(string, max_length=500):
@@ -23,7 +24,7 @@ class IMDB(TabularDataset):
     NUM_CLASSES = 10
     IS_MULTILABEL = False
 
-    TEXT_FIELD = Field(batch_first=True, tokenize=clean_string, include_lengths=True)
+    TEXT_FIELD  = Field(batch_first=True, tokenize=clean_string, include_lengths=True)
     LABEL_FIELD = Field(sequential=False, use_vocab=False, batch_first=True, preprocessing=process_labels)
 
     @staticmethod
@@ -40,8 +41,8 @@ class IMDB(TabularDataset):
         )
 
     @classmethod
-    def iters(cls, path, vectors_name, vectors_cache, batch_size=64, shuffle=True, device=0, vectors=None,
-              unk_init=torch.Tensor.zero_):
+    def iters(cls, path, vectors_name=None, vectors_cache=None, batch_size=64, shuffle=True, device=0, vectors=None,
+              unk_init=torch.Tensor.zero_, onehot_Flag =False, max_size = 30000 ):
         """
         :param path: directory containing train, test, dev files
         :param vectors_name: name of word vectors file
@@ -52,18 +53,18 @@ class IMDB(TabularDataset):
         :param unk_init: function used to generate vector for OOV words
         :return:
         """
-        if vectors is None:
+        if vectors is None and not onehot_Flag:
             vectors = Vectors(name=vectors_name, cache=vectors_cache, unk_init=unk_init)
 
         train, val, test = cls.splits(path)
-        cls.TEXT_FIELD.build_vocab(train, val, test, vectors=vectors)
+        cls.TEXT_FIELD.build_vocab(train, val, test, vectors=vectors, max_size= max_size-2)
         return BucketIterator.splits((train, val, test), batch_size=batch_size, repeat=False, shuffle=shuffle,
                                      sort_within_batch=True, device=device)
 
 
 class IMDBHierarchical(IMDB):
-    NESTING_FIELD = Field(batch_first=True, tokenize=clean_string)
-    TEXT_FIELD = NestedField(NESTING_FIELD, tokenize=split_sents)
+    NESTING_FIELD = Field(batch_first=True, tokenize=clean_string,  fix_length = 50 )
+    TEXT_FIELD = NestedField(NESTING_FIELD, tokenize=Sentence_Tokenize())
 
 
 class IMDBCharQuantized(IMDB):

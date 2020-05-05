@@ -12,12 +12,13 @@ from common.train import TrainerFactory
 from datasets.aapd import AAPDHierarchical as AAPD
 from datasets.imdb import IMDBHierarchical as IMDB
 from datasets.imdb_2 import IMDBHierarchical as IMDB_2
-from datasets.imdb_stanford import IMDBHierarchical as IMDB_stanford
+
 from datasets.reuters import ReutersHierarchical as Reuters
 from datasets.yelp2014 import Yelp2014Hierarchical as Yelp2014
 from models.oh_cnn_HAN.args import get_args
 from models.oh_cnn_HAN.model import One_hot_CNN
 from models.oh_cnn_HAN.one_hot_vector_preprocess import One_hot_vector
+from models.oh_cnn_HAN.sentence_tokenize import Sentence_Tokenize
 
 class UnknownWordVecCache(object):
     """
@@ -56,12 +57,21 @@ def get_logger():
     return logger
 
 
-def evaluate_dataset(split_name, dataset_cls, model, embedding, loader, batch_size, device, is_multilabel):
+
+
+
+
+
+
+def evaluate_dataset(split_name, dataset_cls, model, embedding, loader, batch_size, device, is_multilabel, is_binary):
     saved_model_evaluator = EvaluatorFactory.get_evaluator(dataset_cls, model, embedding, loader, batch_size, device)
     if hasattr(saved_model_evaluator, 'is_multilabel'):
         saved_model_evaluator.is_multilabel = is_multilabel
     if hasattr(saved_model_evaluator, 'ignore_lengths'):
         saved_model_evaluator.ignore_lengths = True
+    if hasattr(test_evaluator, 'is_binary'):
+        saved_model_evaluator.is_binary = is_binary
+
 
     scores, metric_names = saved_model_evaluator.get_scores()
     print('Evaluation metrics for', split_name)
@@ -91,6 +101,28 @@ if __name__ == '__main__':
     if torch.cuda.is_available() and not args.cuda:
         print('Warning: Using CPU for training')
 
+    # Hyperparameters!
+    config = deepcopy(args)
+    config.output_channel  = 400
+    config.input_channel   = 30000
+    config.kernel_H        = 4
+    config.kernel_W        = 3
+    config.rnn_hidden_size = 300
+    config.max_size        = 30000
+    config.fill_value      = 5
+    config.use_RNN         = True
+    config.id              = 1
+    config.hierarchical    = True
+    
+
+
+    if config.hierarchical:
+        from datasets.imdb_stanford import IMDBHierarchical as IMDB_stanford
+        from datasets.imdb import IMDBHierarchical as IMDB
+    else:
+        from datasets.imdb_stanford import IMDB_stanford 
+        from datasets.imdb import IMDB
+
     dataset_map = {
         'Reuters': Reuters,
         'AAPD': AAPD,
@@ -103,17 +135,7 @@ if __name__ == '__main__':
     # '''Notetice that these just a place holder. Thus, vector attributes of field is Null'''
     # one_hot_vector = One_hot_vector()
     
-    # Hyperparameters!
-    config = deepcopy(args)
-    config.output_channel = 100
-    config.input_channel = 30000
-    config.kernel_H = 1
-    config.kernel_W = 3
-    config.rnn_hidden_size = 50
-    config.max_size = 30000
-    config.fill_value = 1
 
-    
 
     if args.dataset not in dataset_map:
         raise ValueError('Unrecognized dataset')
@@ -134,6 +156,7 @@ if __name__ == '__main__':
     config.target_class = train_iter.dataset.NUM_CLASSES
     config.words_num = len(train_iter.dataset.TEXT_FIELD.vocab)
     is_binary = True if config.target_class == 2 else False
+    config.is_binary = is_binary
 
 
     print('Dataset:', args.dataset)
@@ -165,11 +188,12 @@ if __name__ == '__main__':
     #   
     optimizer_warper = False
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay)
-    optimizer = torch.optim.SGD(parameter, lr=args.lr, momentum=0.9)
+    optimizer = torch.optim.RMSprop(parameter, lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=args.weight_decay, momentum=0.9, centered=False)
+    # optimizer = torch.optim.SGD(parameter, lr=args.lr, momentum=0.9)
     
     train_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, train_iter, args.batch_size, args.gpu)
-    test_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, test_iter, args.batch_size, args.gpu)
-    dev_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, dev_iter, args.batch_size, args.gpu)
+    test_evaluator  = EvaluatorFactory.get_evaluator(dataset_class, model, None, test_iter, args.batch_size, args.gpu)
+    dev_evaluator   = EvaluatorFactory.get_evaluator(dataset_class, model, None, dev_iter, args.batch_size, args.gpu)
 
     if hasattr(train_evaluator, 'is_multilabel'):
         train_evaluator.is_multilabel = dataset_class.IS_MULTILABEL
@@ -183,10 +207,12 @@ if __name__ == '__main__':
         test_evaluator.ignore_lengths = True
 
 
-    if hasattr(dev_evaluator, 'ignore_lengths'):
+    if hasattr(dev_evaluator, 'is_binary'):
         dev_evaluator.is_binary = is_binary
-    if hasattr(test_evaluator, 'ignore_lengths'):
+    if hasattr(test_evaluator, 'is_binary'):
         test_evaluator.is_binary = is_binary
+
+    args.patience =6
     is_binary = True if config.target_class == 2 else False
     trainer_config = {
         'optimizer': optimizer,
@@ -217,7 +243,11 @@ if __name__ == '__main__':
 
     evaluate_dataset('dev', dataset_map[args.dataset], model, None, dev_iter, args.batch_size,
                      is_multilabel=dataset_class.IS_MULTILABEL,
-                     device=args.gpu)
+                     device=args.gpu,
+                     is_binary = is_binary
+                     )
     evaluate_dataset('test', dataset_map[args.dataset], model, None, test_iter, args.batch_size,
                      is_multilabel=dataset_class.IS_MULTILABEL,
-                     device=args.gpu)
+                     device=args.gpu,
+                     is_binary = is_binary
+                     )

@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from common.trainers.trainer import Trainer
-
+from models.oh_cnn_HAN.check_text import match_str
 
 class ClassificationTrainer(Trainer):
 
@@ -18,7 +18,15 @@ class ClassificationTrainer(Trainer):
         self.best_dev_f1 = 0
         self.iterations = 0
         self.iters_not_improved = 0
+
+        
         self.start = None
+        self.model_time = 0
+        self.learning_time = 0
+        self.dev_time = 0
+        self.model_process_time = 0
+        self.initialize_time = 0
+        
         self.log_template = ' '.join(
             '{:>6.0f},{:>5.0f},{:>9.0f},{:>5.0f}/{:<5.0f} {:>7.0f}%,{:>8.6f},{:12.4f}'.split(','))
         self.dev_log_template = ' '.join(
@@ -31,13 +39,24 @@ class ClassificationTrainer(Trainer):
         self.train_loader.init_epoch()
         n_correct, n_total = 0, 0
         for batch_idx, batch in enumerate(self.train_loader):
+
+            initialize_time_tmp = time.time()
+            
             self.iterations += 1
             self.model.train()
             if self.config['optimizer_warper']:
                 self.optimizer.optimizer.zero_grad() #for warper
             else:
                 self.optimizer.zero_grad() #origin
-           
+            
+            
+            # if batch.text.shape[2]*batch.text.shape[1]> 100:
+            #     import pdb; pdb.set_trace()
+            #     match_data = match_str(batch.text,batch.dataset.fields['text'].vocab.itos)
+            self.initialize_time += time.time()-initialize_time_tmp
+            model_process_time_tmp = time.time()    
+            
+            # try:
             if hasattr(self.model, 'tar') and self.model.tar:
                 if 'ignore_lengths' in self.config and self.config['ignore_lengths']:
                     scores, rnn_outs = self.model(batch.text)
@@ -49,6 +68,11 @@ class ClassificationTrainer(Trainer):
                 else:
                     scores = self.model(batch.text[0], lengths=batch.text[1])
 
+            self.model_process_time += time.time()-model_process_time_tmp
+            learning_tmp = time.time()
+            # except RuntimeError:
+            #     import pdb; pdb.set_trace()
+
             if 'is_multilabel' in self.config and self.config['is_multilabel']:
                 predictions = F.sigmoid(scores).round().long()
                 for tensor1, tensor2 in zip(predictions, batch.label):
@@ -59,16 +83,24 @@ class ClassificationTrainer(Trainer):
                     
                 if self.config['Binary']:
                     # import pdb; pdb.set_trace()
-                    predictions  = F.sigmoid(scores).round().long().cpu().numpy()
-                    ground_truth = torch.argmax(batch.label.data, dim=1).cpu().numpy()
-                    n_correct   += np.sum(predictions == ground_truth)
+                    try:
+                        predictions  = F.sigmoid(scores).round().long().cpu().numpy()
+                        ground_truth = torch.argmax(batch.label.data, dim=1).cpu().numpy()
+                        n_correct   += np.sum(predictions == ground_truth)
+                    except:
+                        import pdb; pdb.set_trace()
 
                     loss = F.binary_cross_entropy_with_logits(scores, torch.argmax(batch.label.data, dim=1).type(torch.cuda.FloatTensor))
                 else:
-                    for tensor1, tensor2 in zip(torch.argmax(scores, dim=1), torch.argmax(batch.label.data, dim=1)):
-                        if np.array_equal(tensor1, tensor2):
-                            n_correct += 1
-                    loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=1))
+                    
+                    try:
+                        predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
+                        ground_truth = torch.argmax(batch.label.data, dim=-1).cpu().numpy()
+                        n_correct   += np.sum(predictions == ground_truth)
+                    except:
+                        import pdb; pdb.set_trace()
+
+                    loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=-1))
 
             if hasattr(self.model, 'tar') and self.model.tar:
                 loss = loss + self.model.tar * (rnn_outs[1:] - rnn_outs[:-1]).pow(2).mean()
@@ -86,9 +118,10 @@ class ClassificationTrainer(Trainer):
 
             if self.iterations % self.log_interval == 1:
                 niter = epoch * len(self.train_loader) + batch_idx
-                print(self.log_template.format(time.time() - self.start, epoch, self.iterations, 1 + batch_idx,
-                                               len(self.train_loader), 100.0 * (1 + batch_idx) / len(self.train_loader),
-                                               loss.item(), train_acc))
+                # print(self.log_template.format(time.time() - self.start, epoch, self.iterations, 1 + batch_idx,
+                #                                len(self.train_loader), 100.0 * (1 + batch_idx) / len(self.train_loader),
+                #                                loss.item(), train_acc))
+            self.learning_time += time.time()-learning_tmp
 
     def train(self, epochs):
         self.start = time.time()
@@ -98,17 +131,18 @@ class ClassificationTrainer(Trainer):
         os.makedirs(os.path.join(self.model_outfile, self.train_loader.dataset.NAME), exist_ok=True)
 
         for epoch in range(1, epochs + 1):
-            print('\n' + header)
+            # print('\n' + header)
             self.train_epoch(epoch)
             print("Performing evluation!")
             # Evaluate performance on validation set
+            dev_time_tmp = time.time()
             dev_acc, dev_precision, dev_recall, dev_f1, dev_loss = self.dev_evaluator.get_scores()[0]
-
+            self.dev_time += time.time() - dev_time_tmp
             # Print validation results
-            print('\n' + dev_header)
+            # print('\n' + dev_header)
             print(self.dev_log_template.format(time.time() - self.start, epoch, self.iterations, epoch, epochs,
                                                dev_acc, dev_precision, dev_recall, dev_f1, dev_loss))
-
+            print("tot:{}, model:{}, model2:{},learning:{}, dev:{}, initial:{}".format(time.time() - self.start, self.model.tot_time, self.model_process_time, self.learning_time, self.dev_time, self.initialize_time))
             # Update validation results
             if dev_f1 > self.best_dev_f1:
                 self.iters_not_improved = 0

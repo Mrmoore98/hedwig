@@ -50,9 +50,9 @@ class ClassificationEvaluator(Evaluator):
                 total_loss += F.binary_cross_entropy_with_logits(scores, torch.argmax(batch.label, dim=1).float(), size_average=False).item()
                 
             else:
-                predicted_labels.extend(torch.argmax(scores, dim=1).cpu().detach().numpy())
-                target_labels.extend(torch.argmax(batch.label, dim=1).cpu().detach().numpy())
-                total_loss += F.cross_entropy(scores, torch.argmax(batch.label, dim=1), size_average=False).item()
+                predicted_labels.extend(torch.argmax(scores, dim=-1).cpu().detach().numpy())
+                target_labels.extend(torch.argmax(batch.label, dim=-1).cpu().detach().numpy())
+                total_loss += F.cross_entropy(scores, torch.argmax(batch.label, dim=-1), size_average=False).item()
 
 
             if hasattr(self.model, 'tar') and self.model.tar:
