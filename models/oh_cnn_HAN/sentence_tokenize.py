@@ -15,7 +15,7 @@ class Sentence_Tokenize(object):
         # self.pre_train()
         self.st  = sent_tokenize
         self.method = 'origin'
-        self.threshold = 25
+        self.threshold = 15
 
 
     def split_sentence(self,string):

@@ -26,20 +26,30 @@ class ClassificationTrainer(Trainer):
         self.dev_time = 0
         self.model_process_time = 0
         self.initialize_time = 0
-        
+        self.initial_data_time = 0
+        self.batch_time = 0
+
         self.log_template = ' '.join(
             '{:>6.0f},{:>5.0f},{:>9.0f},{:>5.0f}/{:<5.0f} {:>7.0f}%,{:>8.6f},{:12.4f}'.split(','))
         self.dev_log_template = ' '.join(
             '{:>6.0f},{:>5.0f},{:>9.0f},{:>5.0f}/{:<5.0f} {:>7.4f},{:>8.4f},{:8.4f},{:12.4f},{:12.4f}'.split(','))
+        
+        self.train_result = []
+        self.dev_result = [] #[fig,fig,list]
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.snapshot_path = os.path.join(self.model_outfile, self.train_loader.dataset.NAME, '%s.pt' % timestamp)
 
     def train_epoch(self, epoch):
+        itmp = time.time() 
         self.train_loader.init_epoch()
+        self.initial_data_time = time.time()-itmp
+        tmp_batch = time.time()
+
         n_correct, n_total = 0, 0
         for batch_idx, batch in enumerate(self.train_loader):
-
+            
+            self.batch_time += time.time() - tmp_batch 
             initialize_time_tmp = time.time()
             
             self.iterations += 1
@@ -94,13 +104,14 @@ class ClassificationTrainer(Trainer):
                 else:
                     
                     try:
+                        if len(scores.shape)<2:
+                            scores = scores.unsqueeze(0)
                         predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
                         ground_truth = torch.argmax(batch.label.data, dim=-1).cpu().numpy()
                         n_correct   += np.sum(predictions == ground_truth)
+                        loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=-1))
                     except:
                         import pdb; pdb.set_trace()
-
-                    loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=-1))
 
             if hasattr(self.model, 'tar') and self.model.tar:
                 loss = loss + self.model.tar * (rnn_outs[1:] - rnn_outs[:-1]).pow(2).mean()
@@ -116,12 +127,16 @@ class ClassificationTrainer(Trainer):
                 # Temporal averaging
                 self.model.update_ema()
 
-            if self.iterations % self.log_interval == 1:
+            if self.iterations % 300 == 1:
                 niter = epoch * len(self.train_loader) + batch_idx
-                # print(self.log_template.format(time.time() - self.start, epoch, self.iterations, 1 + batch_idx,
-                #                                len(self.train_loader), 100.0 * (1 + batch_idx) / len(self.train_loader),
-                #                                loss.item(), train_acc))
+                print(self.log_template.format(time.time() - self.start, epoch, self.iterations, 1 + batch_idx,
+                                               len(self.train_loader), 100.0 * (1 + batch_idx) / len(self.train_loader),
+                                               loss.item(), train_acc))
+                self.train_result.append((train_acc,loss.item()))
+
+                                
             self.learning_time += time.time()-learning_tmp
+            tmp_batch = time.time()
 
     def train(self, epochs):
         self.start = time.time()
@@ -142,7 +157,10 @@ class ClassificationTrainer(Trainer):
             # print('\n' + dev_header)
             print(self.dev_log_template.format(time.time() - self.start, epoch, self.iterations, epoch, epochs,
                                                dev_acc, dev_precision, dev_recall, dev_f1, dev_loss))
-            print("tot:{}, model:{}, model2:{},learning:{}, dev:{}, initial:{}".format(time.time() - self.start, self.model.tot_time, self.model_process_time, self.learning_time, self.dev_time, self.initialize_time))
+            print("tot:{:.0f}, batch{:.0f}, model:{:.0f}, learning:{:.0f}, dev:{:.0f}, initial:{:.0f}, initial_data{:.0f}".format(time.time() - self.start, self.batch_time, self.model_process_time, self.learning_time, self.dev_time, self.initialize_time, self.initial_data_time))
+            
+            self.dev_result.append([dev_acc, dev_loss, time.time() - self.start])
+            
             # Update validation results
             if dev_f1 > self.best_dev_f1:
                 self.iters_not_improved = 0
@@ -154,3 +172,5 @@ class ClassificationTrainer(Trainer):
                     self.early_stop = True
                     print("Early Stopping. Epoch: {}, Best Dev F1: {}".format(epoch, self.best_dev_f1))
                     break
+
+        return self.dev_result, self.train_result

@@ -2,10 +2,13 @@ import logging
 import os
 import random
 from copy import deepcopy
-
+import time
 import numpy as np
 import torch
 import torch.onnx
+
+from torchtext.data import NestedField, Field, TabularDataset
+from datasets.reuters import clean_string, split_sents, process_labels, generate_ngrams
 
 from common.evaluate import EvaluatorFactory
 from common.train import TrainerFactory
@@ -19,6 +22,9 @@ from models.oh_cnn_HAN.args import get_args
 from models.oh_cnn_HAN.model import One_hot_CNN
 from models.oh_cnn_HAN.one_hot_vector_preprocess import One_hot_vector
 from models.oh_cnn_HAN.sentence_tokenize import Sentence_Tokenize
+
+from models.oh_cnn_HAN.xls_writer import write_xls
+
 
 class UnknownWordVecCache(object):
     """
@@ -43,7 +49,6 @@ class UnknownWordVecCache(object):
             # cls.cache[size_tup]
         return cls.cache[size_tup]
 
-
 def get_logger():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -55,13 +60,6 @@ def get_logger():
     logger.addHandler(ch)
 
     return logger
-
-
-
-
-
-
-
 
 def evaluate_dataset(split_name, dataset_cls, model, embedding, loader, batch_size, device, is_multilabel, is_binary):
     saved_model_evaluator = EvaluatorFactory.get_evaluator(dataset_cls, model, embedding, loader, batch_size, device)
@@ -77,8 +75,6 @@ def evaluate_dataset(split_name, dataset_cls, model, embedding, loader, batch_si
     print('Evaluation metrics for', split_name)
     print(metric_names)
     print(scores)
-
-
 
 
 if __name__ == '__main__':
@@ -103,18 +99,21 @@ if __name__ == '__main__':
 
     # Hyperparameters!
     config = deepcopy(args)
-    config.output_channel  = 400
-    config.input_channel   = 30000
-    config.kernel_H        = 4
-    config.kernel_W        = 3
-    config.rnn_hidden_size = 300
-    config.max_size        = 30000
-    config.fill_value      = 5
-    config.use_RNN         = True
-    config.id              = 1
-    config.hierarchical    = True
-    
-
+    config.output_channel    = [400, 400]
+    config.input_channel     = 30000
+    config.kernel_H          = [4, 3]
+    config.kernel_W          = [1, 1]
+    config.stride            = [1, 1]
+    config.rnn_hidden_size   = 300
+    config.max_size          = 30000
+    config.fill_value        = 5
+    config.use_RNN           = True
+    config.id                = 1
+    config.hierarchical      = True
+    config.attention         = True
+    config.fix_length        = None
+    config.sort_within_batch = True
+    config.optimizer_warper  = False
 
     if config.hierarchical:
         from datasets.imdb_stanford import IMDBHierarchical as IMDB_stanford
@@ -132,10 +131,12 @@ if __name__ == '__main__':
         'IMDB_stanford':IMDB_stanford,
     }
 
+    dataset_map['IMDB'].NESTING_FIELD = Field(batch_first=True, tokenize=clean_string,  fix_length = config.fix_length )
+    dataset_map['IMDB'].TEXT_FIELD = NestedField(dataset_map['IMDB'].NESTING_FIELD, tokenize=Sentence_Tokenize())
     # '''Notetice that these just a place holder. Thus, vector attributes of field is Null'''
     # one_hot_vector = One_hot_vector()
     
-
+    time_tmp = time.time()
 
     if args.dataset not in dataset_map:
         raise ValueError('Unrecognized dataset')
@@ -149,7 +150,8 @@ if __name__ == '__main__':
                                                             #   unk_init=UnknownWordVecCache.unk_oh,  
                                                             #   vectors = one_hot_vector
                                                                 onehot_Flag =True,
-                                                                max_size = config.max_size
+                                                                max_size = config.max_size,
+                                                                sort_within_batch = config.sort_within_batch
                                                               )
 
     config.dataset = train_iter.dataset
@@ -158,7 +160,7 @@ if __name__ == '__main__':
     is_binary = True if config.target_class == 2 else False
     config.is_binary = is_binary
 
-
+    print('Finished preprocess data in {:.0f}s'.format(time.time()-time_tmp))
     print('Dataset:', args.dataset)
     print('No. of target classes:', train_iter.dataset.NUM_CLASSES)
     print('No. of train instances', len(train_iter.dataset))
@@ -185,10 +187,16 @@ if __name__ == '__main__':
 
     parameter = filter(lambda p: p.requires_grad, model.parameters())
     
-    #   
-    optimizer_warper = False
+
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay)
-    optimizer = torch.optim.RMSprop(parameter, lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=args.weight_decay, momentum=0.9, centered=False)
+    optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
+    
+    config.ow_factor = 2
+    config.ow_warmup = 20000
+    config.ow_model_size = 300
+    if config.optimizer_warper:
+        optimizer = NoamOpt( config.ow_model_size, config.ow_factor, config.ow_warmup, optimizer)
+    # optimizer = torch.optim.RMSprop(parameter, lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=args.weight_decay, momentum=0.9, centered=False)
     # optimizer = torch.optim.SGD(parameter, lr=args.lr, momentum=0.9)
     
     train_evaluator = EvaluatorFactory.get_evaluator(dataset_class, model, None, train_iter, args.batch_size, args.gpu)
@@ -224,18 +232,22 @@ if __name__ == '__main__':
         'is_multilabel': dataset_class.IS_MULTILABEL,
         'ignore_lengths': True,
         'Binary': is_binary,
-        'optimizer_warper': optimizer_warper
+        'optimizer_warper': config.optimizer_warper
     }
 
     trainer = TrainerFactory.get_trainer(args.dataset, model, None, train_iter, trainer_config, train_evaluator, test_evaluator, dev_evaluator)
 
     if not args.trained_model:
-        trainer.train(args.epochs)
+        dev_results, train_result = trainer.train(args.epochs)
     else:
         if args.cuda:
             model = torch.load(args.trained_model, map_location=lambda storage, location: storage.cuda(args.gpu))
         else:
             model = torch.load(args.trained_model, map_location=lambda storage, location: storage)
+
+    write_xls(train_result, dev_results, config)
+
+
 
     # Calculate dev and test metrics
     if hasattr(trainer, 'snapshot_path'):

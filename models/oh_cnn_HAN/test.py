@@ -23,13 +23,23 @@ args = get_args()
 config = deepcopy(args)
 config.output_channel = 1000
 config.input_channel = 30000
-config.kernel_H = 1
-config.kernel_W = 3
 config.rnn_hidden_size = 100
 config.target_class =2
 config.max_size = 5
 config.fill_value = 1
-
+config.output_channel  = [400, 400]
+config.input_channel   = 30000
+config.kernel_H        = [4, 3]
+config.stride          = [1, 1]
+config.kernel_W        = [2, 3]
+config.rnn_hidden_size = 300
+config.max_size        = 30000
+config.fill_value      = 5
+config.use_RNN         = True
+config.id              = 1
+config.hierarchical    = True
+config.attention       = True
+config.is_binary       = True
 
 model = One_hot_CNN(config)
 model = model.cuda()
