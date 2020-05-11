@@ -24,7 +24,7 @@ from models.oh_cnn_HAN.one_hot_vector_preprocess import One_hot_vector
 from models.oh_cnn_HAN.sentence_tokenize import Sentence_Tokenize
 
 from models.oh_cnn_HAN.xls_writer import write_xls
-
+from models.oh_cnn_HAN.optim_Noam import NoamOpt
 
 class UnknownWordVecCache(object):
     """
@@ -113,7 +113,8 @@ if __name__ == '__main__':
     config.attention         = True
     config.fix_length        = None
     config.sort_within_batch = True
-    config.optimizer_warper  = False
+    config.optimizer_warper  = True
+    config.rnn_drop_out      = 0.5
 
     if config.hierarchical:
         from datasets.imdb_stanford import IMDBHierarchical as IMDB_stanford
@@ -191,9 +192,9 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     
-    config.ow_factor = 2
-    config.ow_warmup = 20000
-    config.ow_model_size = 300
+    config.ow_factor = 3
+    config.ow_warmup = 40000
+    config.ow_model_size = 600
     if config.optimizer_warper:
         optimizer = NoamOpt( config.ow_model_size, config.ow_factor, config.ow_warmup, optimizer)
     # optimizer = torch.optim.RMSprop(parameter, lr=args.lr, alpha=0.99, eps=1e-08, weight_decay=args.weight_decay, momentum=0.9, centered=False)
@@ -220,7 +221,7 @@ if __name__ == '__main__':
     if hasattr(test_evaluator, 'is_binary'):
         test_evaluator.is_binary = is_binary
 
-    args.patience =6
+    args.patience =5
     is_binary = True if config.target_class == 2 else False
     trainer_config = {
         'optimizer': optimizer,

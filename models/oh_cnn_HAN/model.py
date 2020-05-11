@@ -49,7 +49,7 @@ class One_hot_CNN(nn.Module):
         
         # Sentence-Level
         output_dim = sum(output_channel)
-        self.gru = torch.nn.GRU(input_size = output_dim, hidden_size= rnn_hidden_size, num_layers = 1, batch_first=True, dropout=0.2, bidirectional=True)
+        self.gru = torch.nn.GRU(input_size = output_dim, hidden_size= rnn_hidden_size, num_layers = 1, batch_first=True, dropout=config.rnn_drop_out, bidirectional=True)
         self.fc  = nn.Linear(rnn_hidden_size*2 ,  1 if config.is_binary else config.target_class, bias=True)
         # self.fc_2= nn.Linear(rnn_hidden_size*2 + output_channel*2 , 1 if config.is_binary else config.target_class)
         
