@@ -216,11 +216,12 @@ class One_hot_CNN(nn.Module):
         
         index_one_hot = input.type(torch.cuda.LongTensor).unsqueeze(1)
 
-        output        = self.zero_vec.repeat(*input.shape, 1).permute(0,2,1)
+        output = self.zero_vec.repeat(*input.shape, 1).permute(0,2,1)
         # import pdb; pdb.set_trace()
         # output        = torch.zeros(*input.shape, self.max_dim).permute(0,3,1,2).cuda()
 
         output.scatter_(1, index_one_hot, self.fill_value)
+        output[:,0,:,:] = 0 # set <pad> as 0000
         compressed_output = output[:, index_weight, :]
        
 

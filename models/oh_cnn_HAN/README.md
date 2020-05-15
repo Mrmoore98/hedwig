@@ -9,6 +9,8 @@ To run the model on Reuters dataset on static, just run the following from the p
 ```
 python -m models.han --dataset Reuters --mode static --batch-size 32 --lr 0.01 --epochs 30 --seed 3435
 python -m models.han --dataset IMDB_2 --mode non-static --batch-size 32 --lr 0.001 --epochs 30 --seed 3435
+# for this model the command as follow:
+CUDA_VISIBLE_DEVICES=4 python -m models.oh_cnn_HAN --dataset IMDB --batch-size 20 --lr 0.002 --epochs 30 --seed 2345 
 ```
 
 The best model weights will be saved in
