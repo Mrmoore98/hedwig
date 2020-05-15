@@ -104,9 +104,9 @@ if __name__ == '__main__':
     config.kernel_H          = [4, 3]
     config.kernel_W          = [1, 1]
     config.stride            = [1, 1]
-    config.rnn_hidden_size   = 300
+    config.rnn_hidden_size   = 400
     config.max_size          = 30000
-    config.fill_value        = 5
+    config.fill_value        = 1
     config.use_RNN           = True
     config.id                = 1
     config.hierarchical      = True
@@ -192,8 +192,8 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay)
     optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     
-    config.ow_factor = 3
-    config.ow_warmup = 40000
+    config.ow_factor = 4
+    config.ow_warmup = 80000
     config.ow_model_size = 600
     if config.optimizer_warper:
         optimizer = NoamOpt( config.ow_model_size, config.ow_factor, config.ow_warmup, optimizer)

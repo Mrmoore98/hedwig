@@ -20,9 +20,8 @@ from nltk.tokenize import PunktSentenceTokenizer
 from nltk.corpus import reuters
 from nltk.tokenize import TweetTokenizer, sent_tokenize
 
-
+import pickle
 from xlwt import *
-
 
 
 logger = logging.getLogger(__name__)
@@ -54,6 +53,24 @@ class One_hot_vector(Vectors):
         string = re.sub(r"[^A-Za-z0-9(),!?\'`]", " ", string)
         string = re.sub(r"\s{2,}", " ", string)
         return string.lower().strip().split()
+    
+    def clean_string_np(self, string):
+        """
+        Performs tokenization and string cleaning for the Reuters dataset
+        """
+        string = re.sub(r"[^A-Za-z0-9(),!?\'`]", " ", string)
+        string = re.sub(r"\s{2,}", " ", string)
+        string = string.lower().strip().split()
+        res    = np.array(list(map(self.stoi_take, string )))
+        
+        return res
+    
+    def stoi_take(self, word):
+        if word in self.stoi.keys():
+            return self.stoi[word]
+        else: 
+            return 0
+
 
     def unk_init(self, tensor):
         size_tup = tuple(tensor.size())
@@ -67,7 +84,6 @@ class One_hot_vector(Vectors):
             return self.init_vec.scatter_(0,torch.LongTensor([self.stoi[token]]), self.fill_value)
         else:
             return self.unk_init_vector
-
 
     def vector_init(self):
 
@@ -211,11 +227,85 @@ class One_hot_vector(Vectors):
 
         file.save('/home/zhangxin/sentiment_analysis/hedwig/models/oh_cnn_HAN/data_{}.xls'.format(method))
 
+    def onehot2int(self, label):
+        '''str -> int'''
+
+        label = list(label)        
+        return label.index('1')
+
+    def tsv2np(self):
+        
+        dataset = ['train', 'test']
+        output_file = './imdb_data.pkl'
+        data_path   = '/home/s/CNN-BiLSTM2/hedwig-data/datasets/IMDB/' 
+        data = {}
+        labels= {}
+        for name in dataset:
+            doc = []
+            doc_count = []
+            labels[name] = []
+            with open(data_path + '{}.tsv'.format(name), 'r') as input_tsv:
+                
+                tsv_data_raw = csv.reader(input_tsv, delimiter='\t')
+                for label, text in tsv_data_raw:
+                    
+                    labels[name].append(self.onehot2int(label))
+
+                    if name == 'train':
+                        doc_count.extend(self.clean_string(text))
+                
+             
+                if name == 'train':                
+                    word_frequence = Counter(doc_count)
+                    top_3w = word_frequence.most_common(30000-2) #30000th is the position of unk vector       
+                    self.itos.extend(['<UNK>','<PAD>'])
+                    self.stoi['<UNK>'] = 0
+                    self.stoi['<PAD>'] = 1
+
+                    for i,(word, count) in enumerate(top_3w):
+                        self.itos.append(word)
+                        self.stoi[word] = i + 2
+
+            with open(data_path + '{}.tsv'.format(name), 'r') as input_tsv:
+
+                tsv_data_raw = csv.reader(input_tsv, delimiter='\t')
+                for label, text in tsv_data_raw:
+                    
+                    doc_tmp = list(map(self.clean_string_np, self.split_sentence(text)))
+                    doc.append(doc_tmp)
+
+            data[name] = doc
+  
+        data_store = [self.itos,self.stoi,labels,data]
+        with open(output_file,'wb') as file:
+            pickle.dump(data_store, file)
+        
+        
+        
+
+
+                    
+                    
+
+            
+class IMDB_data_struct(object):
+
+    def __init__(self,itos,stoi,label,data):
+        self.itos = itos
+        self.stoi = stoi
+        self.label = label            
+        self.data  = data
+
+
 
 
 if __name__ == "__main__":
     start_time = time.time()
     print("Start")
     A = One_hot_vector()
-    A.split_doc()
+    A.tsv2np()
     print("Process Complete in {:3d}s!".format(int(time.time()-start_time)))
+    output_file = './imdb_data.pkl'
+    with open(output_file,'rb') as file:
+            res = pickle.load(file)
+    import pdb; pdb.set_trace()

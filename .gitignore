@@ -14,3 +14,6 @@ kim_cnn/data
 .qrel
 *.onnx
 .vscode/
+*.pkl
+*.xls
+*.xlsx
