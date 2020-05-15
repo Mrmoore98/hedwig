@@ -13,3 +13,4 @@ kim_cnn/data
 .results
 .qrel
 *.onnx
+.vscode/
