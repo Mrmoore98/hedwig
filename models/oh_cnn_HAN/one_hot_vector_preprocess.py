@@ -50,7 +50,7 @@ class One_hot_vector(Vectors):
         """
         Performs tokenization and string cleaning for the Reuters dataset
         """
-        string = re.sub(r"[^A-Za-z0-9(),!?\'`]", " ", string)
+        # string = re.sub(r"[^A-Za-z0-9(),!?\'`]", " ", string)
         string = re.sub(r"\s{2,}", " ", string)
         return string.lower().strip().split()
     
@@ -58,7 +58,7 @@ class One_hot_vector(Vectors):
         """
         Performs tokenization and string cleaning for the Reuters dataset
         """
-        string = re.sub(r"[^A-Za-z0-9(),!?\'`]", " ", string)
+        # string = re.sub(r"[^A-Za-z0-9(),!?\'`]", " ", string)
         string = re.sub(r"\s{2,}", " ", string)
         string = string.lower().strip().split()
         res    = np.array(list(map(self.stoi_take, string )))
@@ -130,14 +130,17 @@ class One_hot_vector(Vectors):
     def split_sentence(self, string):
         
         string = re.sub(r"<br />", " ", string) # get rid of huanhangfu
-        # string = re.sub(r"[^A-Za-z0-9():.,!?\'`]", " ", string)   
-        string = re.sub(r"[!?]"," ", string)
+        string = re.sub(r"[^A-Za-z0-9():.,!?\'`]", " ", string)   
+        string = re.sub(r"([.?!](\s*)){2,}",".", string) 
+        sentence_list = re.split(r'[.!?]',string.strip())
+        sentence_list = list(filter(None, sentence_list))
         
-        # import pdb; pdb.set_trace()
-        if self.method =='origin':
-            sentence_list = self.st(string)
-        elif self.method == 'uslearn':
-            sentence_list = self.pst.sentences_from_text(string)
+        # # import pdb; pdb.set_trace()
+        # if self.method =='origin':
+        #     sentence_list = self.st(string)
+        # elif self.method == 'uslearn':
+        #     sentence_list = self.pst.sentences_from_text(string)
+
         sentence_num = len(sentence_list)
         # if sentence_num > self.threshold:   
         #     step = len(string)//self.threshold
@@ -199,7 +202,6 @@ class One_hot_vector(Vectors):
         # tokenizer = PunktSentenceTokenizer(trainer.get_params())
         
         logger.info('pretrain success!')
-
          
     def __len__(self):
         return self.dim       
@@ -258,13 +260,14 @@ class One_hot_vector(Vectors):
                 if name == 'train':                
                     word_frequence = Counter(doc_count)
                     top_3w = word_frequence.most_common(30000-2) #30000th is the position of unk vector       
-                    self.itos.extend(['<UNK>','<PAD>'])
+
+                    self.itos.extend(['<UNK>'])
                     self.stoi['<UNK>'] = 0
-                    self.stoi['<PAD>'] = 1
+                    # self.stoi['<PAD>'] = 1
 
                     for i,(word, count) in enumerate(top_3w):
                         self.itos.append(word)
-                        self.stoi[word] = i + 2
+                        self.stoi[word] = i + 1
 
             with open(data_path + '{}.tsv'.format(name), 'r') as input_tsv:
 
@@ -272,15 +275,52 @@ class One_hot_vector(Vectors):
                 for label, text in tsv_data_raw:
                     
                     doc_tmp = list(map(self.clean_string_np, self.split_sentence(text)))
+                    doc_tmp = list(filter(None, doc_tmp))
                     doc.append(doc_tmp)
 
             data[name] = doc
-  
-        data_store = [self.itos,self.stoi,labels,data]
+        
+        data_store = IMDB_data_struct(self.itos,self.stoi,labels,data)
         with open(output_file,'wb') as file:
             pickle.dump(data_store, file)
         
+    def tsv_count(self):
         
+        dataset = ['train', 'test']
+        output_file = './imdb_flaw.pkl'
+        data_path   = '/home/s/CNN-BiLSTM2/hedwig-data/datasets/IMDB/' 
+        data = {}
+        labels= {}
+        broke_text = {}
+        broke_text_list = {}
+        broke_text_data = {}
+        for name in dataset:
+            doc = []
+            doc_count = []
+            labels[name] = []
+      
+
+            with open(data_path + '{}.tsv'.format(name), 'r') as input_tsv:
+                broke_text[name] = 0
+                broke_text_list[name] = []
+                broke_text_data[name] = []
+                tsv_data_raw = csv.reader(input_tsv, delimiter='\t')
+                for idx, (label, text) in enumerate(tsv_data_raw):
+                    
+                    doc_tmp = list(map(self.clean_string, self.split_sentence(text)))
+                    doc_tmp = list(filter(None, doc_tmp))
+                    # for i, sen in enumerate(doc_tmp):
+                    #     if len(sen) == 0:
+                    #         import pdb; pdb.set_trace()
+                    if min([len(i) for i in doc_tmp]) == 0:
+                        broke_text[name] += 1
+                        broke_text_list[name].append(idx)
+                        broke_text_data[name].append(text)
+        
+        with open(output_file,'wb') as file:
+            pickle.dump([broke_text, broke_text_list], file)
+        import pdb; pdb.set_trace()
+      
         
 
 
@@ -304,6 +344,7 @@ if __name__ == "__main__":
     print("Start")
     A = One_hot_vector()
     A.tsv2np()
+    # A.tsv_count()
     print("Process Complete in {:3d}s!".format(int(time.time()-start_time)))
     output_file = './imdb_data.pkl'
     with open(output_file,'rb') as file:
