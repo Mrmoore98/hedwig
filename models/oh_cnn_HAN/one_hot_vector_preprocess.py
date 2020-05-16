@@ -61,6 +61,7 @@ class One_hot_vector(Vectors):
         # string = re.sub(r"[^A-Za-z0-9(),!?\'`]", " ", string)
         string = re.sub(r"\s{2,}", " ", string)
         string = string.lower().strip().split()
+        string = list(filter(None, string))
         res    = np.array(list(map(self.stoi_take, string )))
         
         return res
@@ -275,7 +276,7 @@ class One_hot_vector(Vectors):
                 for label, text in tsv_data_raw:
                     
                     doc_tmp = list(map(self.clean_string_np, self.split_sentence(text)))
-                    doc_tmp = list(filter(None, doc_tmp))
+      
                     doc.append(doc_tmp)
 
             data[name] = doc
