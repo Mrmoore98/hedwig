@@ -8,12 +8,15 @@ import torch.nn.functional as F
 
 from common.trainers.trainer import Trainer
 from models.oh_cnn_HAN.check_text import match_str
+from models.oh_cnn_HAN.loss import Loss
+from models.oh_cnn_HAN.label_smooth import LabelSmoothing
 
 class ClassificationTrainer(Trainer):
 
-    def __init__(self, model, embedding, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator):
+    def __init__(self, model, embedding, train_loader, trainer_config, config_main, train_evaluator, test_evaluator, dev_evaluator):
         super().__init__(model, embedding, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator)
         self.config = trainer_config
+        self.config_main = config_main
         self.early_stop = False
         self.best_dev_f1 = 0
         self.iterations = 0
@@ -36,6 +39,8 @@ class ClassificationTrainer(Trainer):
         
         self.train_result = []
         self.dev_result = [] #[fig,fig,list]
+
+        self.label_smoothing = LabelSmoothing(config_main)
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.snapshot_path = os.path.join(self.model_outfile, self.train_loader.dataset.NAME, '%s.pt' % timestamp)
@@ -91,27 +96,31 @@ class ClassificationTrainer(Trainer):
                 loss = F.binary_cross_entropy_with_logits(scores, batch.label.float())
             else:
                     
-                if self.config['Binary']:
+                if self.config['loss'] is not None:
+                    loss = Loss(self.config['loss'])(scores, batch.label.data)
+
+                elif self.config['Binary']:
                     # import pdb; pdb.set_trace()
-                    try:
-                        predictions  = F.sigmoid(scores).round().long().cpu().numpy()
-                        ground_truth = torch.argmax(batch.label.data, dim=1).cpu().numpy()
-                        n_correct   += np.sum(predictions == ground_truth)
-                    except:
-                        import pdb; pdb.set_trace()
+
+                    predictions  = F.sigmoid(scores).round().long().cpu().numpy()
+                    ground_truth = torch.argmax(batch.label.data, dim=1).cpu().numpy()
+                    n_correct   += np.sum(predictions == ground_truth)
 
                     loss = F.binary_cross_entropy_with_logits(scores, torch.argmax(batch.label.data, dim=1).type(torch.cuda.FloatTensor))
+
                 else:
-                    
-                    try:
-                        if len(scores.shape)<2:
-                            scores = scores.unsqueeze(0)
-                        predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
-                        ground_truth = torch.argmax(batch.label.data, dim=-1).cpu().numpy()
-                        n_correct   += np.sum(predictions == ground_truth)
+                
+                    if len(scores.shape)<2:
+                        scores = scores.unsqueeze(0)
+                    predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
+                    ground_truth = torch.argmax(batch.label.data, dim=-1).cpu().numpy()
+                    n_correct   += np.sum(predictions == ground_truth)
+
+                    if self.config_main.label_smoothing:
+                        loss = self.label_smoothing(scores,torch.argmax(batch.label.data, dim=1))
+                    else:
                         loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=-1))
-                    except:
-                        import pdb; pdb.set_trace()
+                
 
             if hasattr(self.model, 'tar') and self.model.tar:
                 loss = loss + self.model.tar * (rnn_outs[1:] - rnn_outs[:-1]).pow(2).mean()

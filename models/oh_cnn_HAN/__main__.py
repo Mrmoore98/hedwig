@@ -236,7 +236,7 @@ if __name__ == '__main__':
         'optimizer_warper': config.optimizer_warper
     }
 
-    trainer = TrainerFactory.get_trainer(args.dataset, model, None, train_iter, trainer_config, train_evaluator, test_evaluator, dev_evaluator)
+    trainer = TrainerFactory.get_trainer(args.dataset, model, None, train_iter, trainer_config, train_evaluator, test_evaluator, dev_evaluator, config)
 
     if not args.trained_model:
         dev_results, train_result = trainer.train(args.epochs)

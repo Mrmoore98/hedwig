@@ -1,7 +1,7 @@
 import os
 
 import models.args
-
+from configparser import ConfigParser
 
 def get_args():
     parser = models.args.get_args()
@@ -23,5 +23,18 @@ def get_args():
     parser.add_argument('--resume-snapshot', type=str)
     parser.add_argument('--trained-model', type=str)
 
+    parser.add_argument('--cfg-name', type=str)
+
     args = parser.parse_args()
+    
+
+    # cfg = ConfigParser()
+    # # 对文件修改必须先将文件读取到config
+    # cfg.read(args.cfg_name, encoding='UTF-8')
+    # cfg.getboolean('model','log_errors')
+    
+
     return args
+
+if __name__ == "__main__":
+    args = get_args()

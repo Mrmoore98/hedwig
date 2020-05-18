@@ -35,9 +35,15 @@ class NoamOpt(object):
 
 if __name__ == "__main__":
     
-    tot_step = 20000
-    opts = [NoamOpt(300, 2, 6000, None), 
-            NoamOpt(300, 3, 9000, None),
+
+    ow_factor = 6
+    ow_warmup = 30000
+    ow_model_size = 300
+  
+        
+    tot_step = 50000
+    opts = [NoamOpt( ow_model_size, ow_factor, ow_warmup, None), 
+            NoamOpt(300, 3, 8000, None),
             NoamOpt(600, 3, 9000, None)]
 
     plt.plot(np.arange(1, tot_step), [[opt.rate(i) for opt in opts] for i in range(1, tot_step)])

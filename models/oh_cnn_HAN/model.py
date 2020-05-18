@@ -111,18 +111,15 @@ class One_hot_CNN(nn.Module):
         
             concat_out = torch.cat(self.cnn_out, dim = 1).permute(0,2,3,1)
             word_att   = self.word_attention(concat_out)
-            # concat_out   = F.adaptive_avg_pool1d(concat_out.permute(0,2,1), output_size = 1).squeeze(-1)
+            
             time_2 = time.time() - time_2
             time_3 = time.time()
 
             gru_out, h_n = self.gru(word_att)
-            sen_att      = self.sen_attention(gru_out)
-            # rnn_pool_out = F.adaptive_avg_pool1d(gru_out.permute(0,2,1), output_size = 1).squeeze(-1)
-            # output       = self.relu(rnn_pool_out)
+            # gru_out.unsqueeze(2)
 
-            # concat_out   = F.adaptive_avg_pool1d(concat_out.permute(0,2,1), output_size = 1).squeeze(-1)
-            # output       = torch.cat((concat_out, output), dim=-1)
-            # output       = self.fc(output)
+            sen_att      = self.sen_attention(gru_out)
+
             output       = self.fc(sen_att).squeeze(-1)
 
             time_3 = time.time() - time_3

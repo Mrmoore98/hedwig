@@ -15,7 +15,8 @@ class EvaluatorFactory(object):
         'Yelp2014': ClassificationEvaluator,
         'Robust04': RelevanceTransferEvaluator,
         'Robust05': RelevanceTransferEvaluator,
-        'Robust45': RelevanceTransferEvaluator
+        'Robust45': RelevanceTransferEvaluator,
+        'ELEC':ClassificationEvaluator
     }
 
     @staticmethod
