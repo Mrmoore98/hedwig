@@ -2,7 +2,9 @@
 <img src="https://github.com/karkaroff/hedwig/blob/bellatrix/docs/hedwig.png" width="360">
 </p>
 
-This repo contains PyTorch deep learning models for document classification, implemented by the Data Systems Group at the University of Waterloo.
+This repo contains PyTorch deep learning models for document classification.
+Originally, It is implemented by the Data Systems Group at the University of Waterloo.
+I inherited the software sturcture and implemented our paper's works.
 
 ## Models
 
@@ -26,10 +28,11 @@ $ conda create --name castor python=3.6
 $ source activate castor
 ```
 
-And installing PyTorch as follows:
+And installing PyTorch as follows( the version of PyTorch won't affect codes' running):
 
 ```
 $ conda install pytorch=0.4.1 cuda92 -c pytorch
+$ conda install pytorch=1.4.0 -c pytorch
 ```
 
 Other Python packages we use can be installed via pip:
@@ -38,8 +41,9 @@ Other Python packages we use can be installed via pip:
 $ pip install -r requirements.txt
 ```
 
-Code depends on data from NLTK (e.g., stopwords) so you'll have to download them. 
+Code depends on data from NLTK (e.g., stopwords and sentence split) so you'll have to download them. 
 Run the Python interpreter and type the commands:
+
 
 ```python
 >>> import nltk
