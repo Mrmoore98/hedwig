@@ -42,6 +42,7 @@ class SentLevelRNN(nn.Module):
         #sen_vec[seq_len, bs, word_num_hidden*2]
         # import pdb; pdb.set_trace()
         sen_vec = self.sen_vec_norm(sen_vec)
+    
         if self.residual:
             # sentence_h = self.SenGruRes(sen_vec, self.sentence_gru)
             sentence_h,_ = self.sentence_gru(sen_vec)

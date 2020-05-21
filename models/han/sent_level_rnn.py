@@ -18,7 +18,8 @@ class SentLevelRNN(nn.Module):
 
         self.sentence_context_weights = nn.Parameter(torch.rand(2 * sentence_num_hidden, 1))
         self.sentence_context_weights.data.uniform_(-0.1, 0.1)
-        self.sentence_gru = nn.GRU(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
+        # self.sentence_gru = nn.GRU(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
+        self.sentence_gru = nn.LSTM(2 * word_num_hidden, sentence_num_hidden,  dropout=0.2, bidirectional=True)
         self.sentence_linear = nn.Linear(2 * sentence_num_hidden, 2 * sentence_num_hidden, bias=True)
         self.fc = nn.Linear(2 * sentence_num_hidden , target_class)
         self.fc_cat = nn.Linear(2*2 * sentence_num_hidden , target_class)
@@ -42,6 +43,7 @@ class SentLevelRNN(nn.Module):
         #sen_vec[seq_len, bs, word_num_hidden*2]
         # import pdb; pdb.set_trace()
         sen_vec = self.sen_vec_norm(sen_vec)
+    
         if self.residual:
             # sentence_h = self.SenGruRes(sen_vec, self.sentence_gru)
             sentence_h,_ = self.sentence_gru(sen_vec)

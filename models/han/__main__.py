@@ -170,8 +170,9 @@ if __name__ == '__main__':
 
     parameter = filter(lambda p: p.requires_grad, model.parameters())
     
-    optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
-    config.ow_factor = 4
+    # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
+    optimizer = torch.optim.AdamW(parameter, lr=args.lr, betas=(0.9, 0.98), eps=1e-09, weight_decay=args.weight_decay, amsgrad=False)
+    config.ow_factor = 2
     config.ow_warmup = 20000
     config.ow_model_size = 300
     if config.optimizer_warper:

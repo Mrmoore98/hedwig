@@ -119,7 +119,7 @@ class ClassificationTrainer(Trainer):
                     if self.config_main.label_smoothing:
                         loss = self.label_smoothing(scores,torch.argmax(batch.label.data, dim=1))
                     else:
-                        loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=-1))
+                        loss = F.cross_entropy(scores, torch.argmax(batch.label.data, dim=1))
                 
 
             if hasattr(self.model, 'tar') and self.model.tar:
