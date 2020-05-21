@@ -81,7 +81,7 @@ class WordLevelRNN(nn.Module):
         x = self.soft_word(x.transpose(1, 0))
         x = torch.mul(h.permute(2, 0, 1), x.transpose(1, 0))
         x = torch.sum(x, dim=1)
-        return x.transpose(1, 0).unsqueeze(0)
+        return x.transpose(1, 0).unsqueeze(0), None
 
 def conv1d_same_padding(inputs, out_channels, kernel_size, bias=None, stride=1, dilation=1, groups=1):
 
