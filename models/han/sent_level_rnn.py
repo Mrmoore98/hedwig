@@ -18,11 +18,11 @@ class SentLevelRNN(nn.Module):
 
         self.sentence_context_weights = nn.Parameter(torch.rand(2 * self.sentence_num_hidden, 1))
         self.sentence_context_weights.data.uniform_(-0.1, 0.1)
-        # self.sentence_gru = nn.GRU(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
-        self.sentence_gru = nn.LSTM(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
-        self.sentence_linear = nn.Linear(2 * sentence_num_hidden, 2 * sentence_num_hidden, bias=True)
-        self.fc = nn.Linear(2 * sentence_num_hidden , target_class)
-        self.fc_cat = nn.Linear(2*2 * sentence_num_hidden , target_class)
+        # self.sentence_rnn = nn.GRU(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
+        self.sentence_rnn = nn.LSTM(2 * self.word_num_hidden, self.sentence_num_hidden, bidirectional=True)
+        self.sentence_linear = nn.Linear(2 * self.sentence_num_hidden, 2 * self.sentence_num_hidden, bias=True)
+        self.fc = nn.Linear(2 * self.sentence_num_hidden , target_class)
+        self.fc_cat = nn.Linear(2*2 * self.sentence_num_hidden , target_class)
 
         self.soft_sent = nn.Softmax()
         self.scale_factor = math.sqrt(2 * self.sentence_num_hidden)
