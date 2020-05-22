@@ -50,6 +50,8 @@ class WordLevelRNN(nn.Module):
         
         self.vae_struct = config.vae_struct
         self.frontend_cnn = config.frontend_cnn
+        if self.frontend_cnn:
+            self.front_cnn = conv1d_same_padding( config.words_dim, word_num_hidden, 1, stride=1, dilation=1, bias=True)
 
     def forward(self, x):
         # x expected to be of dimensions--> (num_words, batch_size)
@@ -69,7 +71,10 @@ class WordLevelRNN(nn.Module):
         #x:[word numbers, batch size, word dim]
 
         if self.frontend_cnn:
-            pass
+            x = x.permute(1,2,0)
+            x = self.front_cnn(x)
+            x = self.relu(x)
+            x = x.permute(2,0,1)
 
         if self.CNN:
             x = x.permute(1,2,0)
