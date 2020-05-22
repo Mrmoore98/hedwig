@@ -142,6 +142,10 @@ class ClassificationTrainer(Trainer):
                                                len(self.train_loader), 100.0 * (1 + batch_idx) / len(self.train_loader),
                                                loss.item(), train_acc))
                 self.train_result.append((train_acc,loss.item()))
+            if self.iterations % 300*3 == 1:
+                dev_acc, dev_precision, dev_recall, dev_f1, dev_loss = self.dev_evaluator.get_scores()[0]
+                print(self.dev_log_template.format(time.time() - self.start, 1, self.iterations, 1, 1,
+                                                            dev_acc, dev_precision, dev_recall, dev_f1, dev_loss))
 
                                 
             self.learning_time += time.time()-learning_tmp
