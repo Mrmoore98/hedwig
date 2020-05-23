@@ -162,13 +162,13 @@ if __name__ == "__main__":
     config.dropout_rate =0.5
     config.vae_word_dim = 30000
     
-    input = torch.randn(2, 5, requires_grad=True)
-    target = torch.randn(2, 5)
-    origin_data_index = torch.randint(0,30000,(2,3,5))
     aa = Loss(config)
     sentence_len = 20
     sentence_num = 10
-    batch_size = 5
+    batch_size = 2
+    input = torch.randn(batch_size, sentence_num, requires_grad=True)
+    target = torch.randn(batch_size, sentence_num)
+    origin_data_index = torch.randint(0,30000,(batch_size, sentence_num, sentence_len))
     word_vec = torch.randn(batch_size, sentence_num, sentence_len, 2*config.word_num_hidden, requires_grad=True).permute(0,3,1,2)
     output = aa.apply('ELBO')(input, target, word_vec, origin_data_index)
     output.backward()
