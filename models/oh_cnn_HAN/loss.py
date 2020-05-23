@@ -8,6 +8,8 @@ import torch.nn.functional as F
 import torch.nn as nn
 import pickle
 
+import sys
+
 class Loss(nn.Module):
 
     def __init__(self, config):
@@ -23,7 +25,7 @@ class Loss(nn.Module):
 
         if len(scores.shape)<2:
             scores = scores.unsqueeze(0)
-
+        n_correct = 0
         predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
         ground_truth = torch.argmax(label, dim=-1).cpu().numpy()
         n_correct   += np.sum(predictions == ground_truth)
@@ -66,28 +68,29 @@ class VAELoss(nn.Module):
         data_path = '/home/s/CNN-BiLSTM2/hedwig-data/Conv_PGDS_Batch_5_11.pkl'
         with open(data_path, 'rb') as file:
             deconv_kernel = pickle.load(file)
-
-        deconv_kernel = torch.from_numpy(deconv_kernel).reshape(1000, 30000, 3, 1)
-        self.deconv_kernel = nn.parameter(deconv_kernel, requires_grad = False)
+        deconv_kernel['D'] = np.concatenate((deconv_kernel['D'],np.random.rand(1000,1,3)),axis=1)   
+        deconv_kernel = torch.from_numpy(deconv_kernel['D']).reshape(1000, 30000, 3, 1)
+        self.deconv_kernel = nn.Parameter(deconv_kernel, requires_grad = False)
         self.zero_vec = nn.Parameter(torch.zeros(1, config.vae_word_dim), requires_grad = False)
-        self.shape_scale_cnn = nn.Conv2d(config.word_hidden_dim*2, 2*2*config.word_hidden_dim, 1, groups=2)
-        self.word_hidden_dim = config.word_hidden_dim
+        self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, 2*2*config.word_num_hidden, 1, groups=2)
+        self.word_num_hidden = config.word_num_hidden
+        self.fill_value = 1
     
     def ELBO(self, scores, label, W, origin_data):
         
         W = self.shape_scale_cnn(W)
-        Wei_shape, Wei_scale = W[:,:self.word_hidden_dim*2,:,:], W[:,self.word_hidden_dim*2:,:,:]
+        Wei_shape, Wei_scale = W[:,:self.word_num_hidden*2,:,:], W[:,self.word_num_hidden*2:,:,:]
         Gam_shape = torch.ones_like(Wei_shape)
         Gam_scale = torch.ones_like(Wei_scale)
         CE_loss = self.cross_entropy(scores, label)
         KL_loss = self.KL_GamWei(Gam_shape, Gam_scale, Wei_shape, Wei_scale)
         theta = self.reparameterization(Wei_shape, Wei_scale)
-        Likelihood = self.Likeihood(self.Params, theta, origin_data)
+        Likelihood = self.Likeihood(theta, origin_data)
         Loss = CE_loss - Likelihood + KL_loss
         return Loss
 
     def log_max(self, input):
-        return torch.log(torch.max(input, self.real_min))
+        return torch.log(torch.max(input, torch.tensor([self.real_min], dtype=input.dtype)))
 
     def reparameterization(self, Wei_shape, Wei_scale):
         self.eps = torch.empty_like(Wei_shape, dtype= torch.float64 ).uniform_(0,1)
@@ -100,7 +103,7 @@ class VAELoss(nn.Module):
         KL = KL_Part1 + KL_Part2 - Gam_scale * Wei_scale * torch.exp(torch.lgamma(1 + 1 / Wei_shape))
         return KL
 
-    def Likeihood(self, Params, theta, origin_data):
+    def Likeihood(self, theta, origin_data, Param=None):
         likelihood = 0
         Orgin_X, weight = self.to_oh(origin_data)
         PhiTheta_1 = self.deconv2d(theta, weight, Orgin_X.size(2), Orgin_X.size(3))
@@ -112,29 +115,43 @@ class VAELoss(nn.Module):
     def deconv2d(self, input, weight, expected_W, expected_H, stride=(1,1), dilation=(1,1), padding=(0,0)):
         
         output_pad = [None, None]
-        output_pad[0] = expected_W - (input.size(2)-1)*stride[0] + 2*padding[0]- dilation[0]*(self.weight.size(0)-1) - 1
-        output_pad[1] = expected_H - (input.size(3)-1)*stride[1] + 2*padding[1]- dilation[1]*(self.weight.size(1)-1) - 1
-        output = F.conv_transpose2d(input, weight, output_padding = output_pad, bias = True)
+        output_pad[0] = expected_W - (input.size(2)-1)*stride[0] + 2*padding[0]- dilation[0]*(weight.size(0)-1) - 1
+        output_pad[1] = expected_H - (input.size(3)-1)*stride[1] + 2*padding[1]- dilation[1]*(weight.size(1)-1) - 1
+        
+        output = F.conv_transpose2d(input, weight, output_padding = output_pad)
         return output
 
     def to_oh(self, input):
         '''Adaptively adjust weight to accommodate input'''        
         # allocate weight 
-        index_weight  = torch.unique(input).type(torch.cuda.LongTensor)
+        index_weight  = torch.unique(input)
         weight=self.deconv_kernel[:,index_weight,:,:]
-        index_one_hot = input.type(torch.cuda.LongTensor).unsqueeze(1)
+        index_one_hot = input.unsqueeze(1)
         output        = self.zero_vec.repeat(*input.shape, 1).permute(0,3,1,2)
         output.scatter_(1, index_one_hot, self.fill_value)
         compressed_output = output[:, index_weight, :, :]
 
         return compressed_output, weight
+    
+    def cross_entropy(self, scores, label):
+
+        if len(scores.shape)<2:
+            scores = scores.unsqueeze(0)
+        n_correct = 0
+        predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
+        ground_truth = torch.argmax(label, dim=-1).cpu().numpy()
+        n_correct   += np.sum(predictions == ground_truth)
+        loss = F.cross_entropy(scores, torch.argmax(label, dim=-1))
+
+        return loss
 
 
 
 if __name__ == "__main__":
-
+    import os
+    sys.path.append(os.getcwd())
+    from models.oh_cnn_HAN.args import get_args
     from copy import deepcopy
-
     args = get_args()
     config = deepcopy(args)
     config.word_num_hidden = 100
@@ -143,21 +160,16 @@ if __name__ == "__main__":
     config.vae_struct = True
     config.residual = False
     config.dropout_rate =0.5
+    config.vae_word_dim = 30000
     
-    input = torch.randn(3, 5, requires_grad=True)
-    target = torch.randn(3, 5)
-    data = torch.randn(2,3,5,100)
-    origin_data_index = torch.randint(2,3,5)
+    input = torch.randn(2, 5, requires_grad=True)
+    target = torch.randn(2, 5)
+    origin_data_index = torch.randint(0,30000,(2,3,5))
     aa = Loss(config)
-
-
-
-    aa = SentLevelRNN(config)
     sentence_len = 20
     sentence_num = 10
     batch_size = 5
-    sentence_vec = torch.randn(sentence_num, batch_size, 2*config.word_num_hidden)
-    word_vec = torch.randn(batch_size, sentence_num, sentence_len, 2*config.word_num_hidden).permute(1,2,0,3)
-    output = aa.apply('ELBO')(input, target, data, origin_data_index)
+    word_vec = torch.randn(batch_size, sentence_num, sentence_len, 2*config.word_num_hidden, requires_grad=True).permute(0,3,1,2)
+    output = aa.apply('ELBO')(input, target, word_vec, origin_data_index)
     output.backward()
     import pdb; pdb.set_trace()
