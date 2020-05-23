@@ -69,18 +69,18 @@ class VAELoss(nn.Module):
         with open(data_path, 'rb') as file:
             deconv_kernel = pickle.load(file)
         deconv_kernel['D'] = np.concatenate((deconv_kernel['D'],np.random.rand(1000,1,3)),axis=1)   
-        deconv_kernel = torch.from_numpy(deconv_kernel['D']).reshape(1000, 30000, 3, 1)
+        deconv_kernel = torch.from_numpy(deconv_kernel['D']).reshape(1000, 30000, 3, 1).permute(1,0,2,3)
         self.deconv_kernel = nn.Parameter(deconv_kernel, requires_grad = False)
         self.zero_vec = nn.Parameter(torch.zeros(1, config.vae_word_dim), requires_grad = False)
-        self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, 2*2*config.word_num_hidden, 1, groups=2)
+        self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, 2*1000, 1, groups=2)
         self.word_num_hidden = config.word_num_hidden
-        self.bias = nn.Parameter(torch.empty(config.vae_word_dim).uniform_(-0.1, 0.1))
+        self.bias = nn.Parameter(torch.empty(config.vae_word_dim, dtype= torch.float64).uniform_(-0.1, 0.1))
         self.fill_value = 1
     
     def ELBO(self, scores, label, W, origin_data):
         
         W = self.shape_scale_cnn(W)
-        Wei_shape, Wei_scale = W[:,:self.word_num_hidden*2,:,:], W[:,self.word_num_hidden*2:,:,:]
+        Wei_shape, Wei_scale = W[:,:W.shape[1]//2,:,:], W[:,W.shape[1]//2:,:,:]
         Gam_shape = torch.ones_like(Wei_shape)
         Gam_scale = torch.ones_like(Wei_scale)
         CE_loss = self.cross_entropy(scores, label)
@@ -102,7 +102,7 @@ class VAELoss(nn.Module):
         KL_Part1 = self.eulergamma * (1 - 1 / Wei_shape) + self.log_max(Wei_scale / Wei_shape) + 1 + Gam_shape * self.log_max(Gam_scale)
         KL_Part2 = -1*torch.lgamma(Gam_shape) + (Gam_shape - 1) * (self.log_max(Wei_scale) - self.eulergamma / Wei_shape)
         KL = KL_Part1 + KL_Part2 - Gam_scale * Wei_scale * torch.exp(torch.lgamma(1 + 1 / Wei_shape))
-        return KL
+        return torch.sum(KL)
 
     def Likeihood(self, theta, origin_data, Param=None):
         likelihood = 0
@@ -126,7 +126,7 @@ class VAELoss(nn.Module):
         '''Adaptively adjust weight to accommodate input'''        
         # allocate weight 
         index_weight  = torch.unique(input)
-        weight=self.deconv_kernel[:,index_weight,:,:]
+        weight=self.deconv_kernel[index_weight,:,:,:]
         bias  =self.bias[index_weight] 
         index_one_hot = input.unsqueeze(1)
         output        = self.zero_vec.repeat(*input.shape, 1).permute(0,3,1,2)
