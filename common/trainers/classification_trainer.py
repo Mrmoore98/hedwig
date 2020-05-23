@@ -51,9 +51,10 @@ class ClassificationTrainer(Trainer):
         self.initial_data_time = time.time()-itmp
         tmp_batch = time.time()
 
-        n_correct, n_total = 0, 0
+        
         for batch_idx, batch in enumerate(self.train_loader):
             
+            n_correct, n_total = 0, 0
             self.batch_time += time.time() - tmp_batch 
             initialize_time_tmp = time.time()
             
@@ -79,7 +80,10 @@ class ClassificationTrainer(Trainer):
                     scores, rnn_outs = self.model(batch.text[0], lengths=batch.text[1])
             else:
                 if 'ignore_lengths' in self.config and self.config['ignore_lengths']:
-                    scores = self.model(batch.text)
+                    if self.config_main.vae_struct:
+                        scores, feature_map = self.model(batch.text)
+                    else:
+                        scores = self.model(batch.text)
                 else:
                     scores = self.model(batch.text[0], lengths=batch.text[1])
 
@@ -97,17 +101,22 @@ class ClassificationTrainer(Trainer):
             else:
                     
                 if self.config['loss'] is not None:
-                    loss = Loss(self.config['loss'])(scores, batch.label.data)
+                    if self.config_main.vae_struct:
+                        if len(scores.shape)<2:
+                            scores = scores.unsqueeze(0)
+                        predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
+                        ground_truth = torch.argmax(label, dim=-1).cpu().numpy()
+                        n_correct   += np.sum(predictions == ground_truth)
+                        loss, n_correct = Loss(self.config['loss'])(scores, batch.label.data, feature_map, batch.text)
+                    else:
+                        loss, n_correct = Loss(self.config['loss'])(scores, batch.label.data)
 
                 elif self.config['Binary']:
-                    # import pdb; pdb.set_trace()
-
                     predictions  = F.sigmoid(scores).round().long().cpu().numpy()
                     ground_truth = torch.argmax(batch.label.data, dim=1).cpu().numpy()
                     n_correct   += np.sum(predictions == ground_truth)
 
                     loss = F.binary_cross_entropy_with_logits(scores, torch.argmax(batch.label.data, dim=1).type(torch.cuda.FloatTensor))
-
                 else:
                 
                     if len(scores.shape)<2:
@@ -127,7 +136,7 @@ class ClassificationTrainer(Trainer):
             if hasattr(self.model, 'ar') and self.model.ar:
                 loss = loss + self.model.ar * (rnn_outs[:]).pow(2).mean()
 
-            n_total += batch.batch_size
+            n_total = batch.batch_size
             train_acc = 100. * n_correct / n_total
             loss.backward()
             self.optimizer.step()

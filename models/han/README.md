@@ -7,7 +7,7 @@ Implementation of Hierarchical Attention Networks for Documnet Classification [H
 To run the model on Reuters dataset on static, just run the following from the project working directory.
 
 ```
-python -m models.han --dataset Reuters --mode static --batch-size 32 --lr 0.01 --epochs 30 --seed 3435
+python -m models.han --dataset IMDB --mode non-static --batch-size 32 --lr 0.001 --epochs 30 --seed 3435
 ```
 
 The best model weights will be saved in

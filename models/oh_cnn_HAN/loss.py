@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import pickle
-
+from models.oh_cnn_HAN.label_smooth import LabelSmoothing
 import sys
 
 class Loss(nn.Module):
@@ -76,6 +76,8 @@ class VAELoss(nn.Module):
         self.word_num_hidden = config.word_num_hidden
         self.bias = nn.Parameter(torch.empty(config.vae_word_dim, dtype= torch.float64).uniform_(-0.1, 0.1))
         self.fill_value = 1
+        self.label_smoothing = LabelSmoothing(config)
+        self.label_smooth = config.label_smoothing
     
     def ELBO(self, scores, label, W, origin_data):
         
@@ -83,7 +85,10 @@ class VAELoss(nn.Module):
         Wei_shape, Wei_scale = W[:,:W.shape[1]//2,:,:], W[:,W.shape[1]//2:,:,:]
         Gam_shape = torch.ones_like(Wei_shape)
         Gam_scale = torch.ones_like(Wei_scale)
-        CE_loss = self.cross_entropy(scores, label)
+        if self.label_smooth:
+            CE_loss = self.label_smoothing(scores, label)
+        else:
+            CE_loss = self.cross_entropy(scores, label)
         KL_loss = self.KL_GamWei(Gam_shape, Gam_scale, Wei_shape, Wei_scale)
         theta = self.reparameterization(Wei_shape, Wei_scale)
         Likelihood = self.Likeihood(theta, origin_data)
@@ -136,13 +141,6 @@ class VAELoss(nn.Module):
         return compressed_output, weight, bias
     
     def cross_entropy(self, scores, label):
-
-        if len(scores.shape)<2:
-            scores = scores.unsqueeze(0)
-        n_correct = 0
-        predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
-        ground_truth = torch.argmax(label, dim=-1).cpu().numpy()
-        n_correct   += np.sum(predictions == ground_truth)
         loss = F.cross_entropy(scores, torch.argmax(label, dim=-1))
 
         return loss

@@ -61,7 +61,11 @@ class SentLevelRNN(nn.Module):
         x = self.SenFfCat(x, self.ff)
         x = torch.sum(x, dim=0)
         x = self.fc_cat(x)
-        return x
+
+        if self.vae_struct:
+            return x, vae2decoder
+        else:
+            return x
         
     def han_attention(self, input_tensor):
 

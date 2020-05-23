@@ -130,22 +130,19 @@ class One_hot_vector(Vectors):
   
     def split_sentence(self, string):
         
-        string = re.sub(r"<br />", " ", string) # get rid of huanhangfu
-        string = re.sub(r"[^A-Za-z0-9():.,!?\'`]", " ", string)   
-        string = re.sub(r"([.?!](\s*)){2,}",".", string) 
-        sentence_list = re.split(r'[.!?]',string.strip())
-        sentence_list = list(filter(None, sentence_list))
-        
-        # # import pdb; pdb.set_trace()
-        # if self.method =='origin':
-        #     sentence_list = self.st(string)
-        # elif self.method == 'uslearn':
-        #     sentence_list = self.pst.sentences_from_text(string)
+        string_list = re.split(r"<br /><br />", string)
+        sentence_list = []
+        for string in  string_list:
+            string = re.sub(r"[^A-Za-z0-9():;.,!?\'`]", " ", string)   
+            string = re.sub(r"([.?!](\s*)){2,}",".", string) 
+            sentence_list_tmp = re.split(r'[;.!?]',string.strip())
+            sentence_list.extend(list(filter(None, sentence_list_tmp)))
 
-        sentence_num = len(sentence_list)
-        # if sentence_num > self.threshold:   
-        #     step = len(string)//self.threshold
-        #     sentence_list = [string[i:i+step] for i in range(0, len(string), step)]
+        # string = re.sub(r"<br />", " ", string) # get rid of huanhangfu
+        # string = re.sub(r"[^A-Za-z0-9():.,!?\'`]", " ", string)   
+        # string = re.sub(r"([.?!](\s*)){2,}",".", string) 
+        # sentence_list = re.split(r'[.!?]',string.strip())
+        # sentence_list = list(filter(None, sentence_list))
 
         return sentence_list 
 
@@ -234,13 +231,14 @@ class One_hot_vector(Vectors):
         '''str -> int'''
 
         label = list(label)        
-        return label.index('1')
+        return [i for i, l in enumerate(label) if l=='1']
 
     def tsv2np(self):
         
+        database = 'Reuters'
         dataset = ['train', 'test']
-        output_file = './imdb_data.pkl'
-        data_path   = '/home/s/CNN-BiLSTM2/hedwig-data/datasets/IMDB/' 
+        output_file = './{}_data.pkl'.format(database)
+        data_path   = '/home/zhangxin/sentiment_analysis/hedwig-data/datasets/{}/'.format(database) 
         data = {}
         labels= {}
         for name in dataset:
@@ -254,32 +252,33 @@ class One_hot_vector(Vectors):
                     
                     labels[name].append(self.onehot2int(label))
 
-                    if name == 'train':
-                        doc_count.extend(self.clean_string(text))
+                    # if name == 'train':
+                    doc_count.extend(self.clean_string(text))
                 
              
-                if name == 'train':                
-                    word_frequence = Counter(doc_count)
-                    top_3w = word_frequence.most_common(30000-2) #30000th is the position of unk vector       
+            # if name == 'train':                
+        word_frequence = Counter(doc_count)
+        import pdb; pdb.set_trace()
+            #         top_3w = word_frequence.most_common(30000-2) #30000th is the position of unk vector       
 
-                    self.itos.extend(['<UNK>'])
-                    self.stoi['<UNK>'] = 0
-                    # self.stoi['<PAD>'] = 1
+            #         self.itos.extend(['<UNK>'])
+            #         self.stoi['<UNK>'] = 0
+            #         # self.stoi['<PAD>'] = 1
 
-                    for i,(word, count) in enumerate(top_3w):
-                        self.itos.append(word)
-                        self.stoi[word] = i + 1
+            #         for i,(word, count) in enumerate(top_3w):
+            #             self.itos.append(word)
+            #             self.stoi[word] = i + 1
 
-            with open(data_path + '{}.tsv'.format(name), 'r') as input_tsv:
+            # with open(data_path + '{}.tsv'.format(name), 'r') as input_tsv:
 
-                tsv_data_raw = csv.reader(input_tsv, delimiter='\t')
-                for label, text in tsv_data_raw:
+            #     tsv_data_raw = csv.reader(input_tsv, delimiter='\t')
+            #     for label, text in tsv_data_raw:
                     
-                    doc_tmp = list(map(self.clean_string_np, self.split_sentence(text)))
-      
-                    doc.append(doc_tmp)
+            #         doc_tmp = list(map(self.clean_string_np, self.split_sentence(text)))
+            #         # doc_tmp = list(filter(None, doc_tmp))
+            #         doc.append(doc_tmp)
 
-            data[name] = doc
+            # data[name] = doc
         
         data_store = IMDB_data_struct(self.itos,self.stoi,labels,data)
         with open(output_file,'wb') as file:
@@ -289,17 +288,20 @@ class One_hot_vector(Vectors):
         
         dataset = ['train', 'test']
         output_file = './imdb_flaw.pkl'
-        data_path   = '/home/s/CNN-BiLSTM2/hedwig-data/datasets/IMDB/' 
+        data_path   = '/home/s/CNN-BiLSTM2/hedwig-data/datasets/IMDB_stanford/' 
         data = {}
         labels= {}
         broke_text = {}
         broke_text_list = {}
         broke_text_data = {}
+        max_lensen = 0
+        max_doc_len = 0
+        mean_sen = []
+        mean_doc = []
         for name in dataset:
             doc = []
             doc_count = []
             labels[name] = []
-      
 
             with open(data_path + '{}.tsv'.format(name), 'r') as input_tsv:
                 broke_text[name] = 0
@@ -310,14 +312,25 @@ class One_hot_vector(Vectors):
                     
                     doc_tmp = list(map(self.clean_string, self.split_sentence(text)))
                     doc_tmp = list(filter(None, doc_tmp))
+                    max_lensen = max( max( [len(sen) for sen in doc_tmp]),max_lensen)
+                    mean_sen.append(sum([len(sen) for sen in doc_tmp])/len(doc_tmp))
+                    mean_doc.append(len(doc_tmp))
+                    # if max_lensen == 275:
+                        # import pdb; pdb.set_trace()
+                    max_doc_len = max(max_doc_len, len(doc_tmp))
+                    if len(doc_tmp) > 50 or max( [len(sen) for sen in doc_tmp])>100:
+                        broke_text[name] += 1
+                        broke_text_list[name].append(idx)
+                        # broke_text_data[name].append(text)
                     # for i, sen in enumerate(doc_tmp):
                     #     if len(sen) == 0:
                     #         import pdb; pdb.set_trace()
-                    if min([len(i) for i in doc_tmp]) == 0:
-                        broke_text[name] += 1
-                        broke_text_list[name].append(idx)
-                        broke_text_data[name].append(text)
-        
+                    # if min([len(i) for i in doc_tmp]) == 0:
+                    #     broke_text[name] += 1
+                    #     broke_text_list[name].append(idx)
+                    #     broke_text_data[name].append(text)
+        mean_sen = sum(mean_sen)/50000
+        mean_doc = sum(mean_doc)/50000
         with open(output_file,'wb') as file:
             pickle.dump([broke_text, broke_text_list], file)
         import pdb; pdb.set_trace()
@@ -344,10 +357,10 @@ if __name__ == "__main__":
     start_time = time.time()
     print("Start")
     A = One_hot_vector()
-    A.tsv2np()
-    # A.tsv_count()
+    # A.tsv2np()
+    A.tsv_count()
     print("Process Complete in {:3d}s!".format(int(time.time()-start_time)))
-    output_file = './imdb_data.pkl'
-    with open(output_file,'rb') as file:
-            res = pickle.load(file)
-    import pdb; pdb.set_trace()
+    # output_file = './imdb_data.pkl'
+    # with open(output_file,'rb') as file:
+            # res = pickle.load(file)
+    # import pdb; pdb.set_trace()

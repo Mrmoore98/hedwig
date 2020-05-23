@@ -20,11 +20,13 @@ class Sentence_Tokenize(object):
 
     def split_sentence(self,string):
     
-        string = re.sub(r"<br />", " ", string) # get rid of huanhangfu
-        string = re.sub(r"[^A-Za-z0-9():.,!?\'`]", " ", string)   
-        string = re.sub(r"([.?!](\s*)){2,}",".", string) 
-        sentence_list = re.split(r'[.!?]',string.strip())
-        sentence_list = list(filter(None, sentence_list))
+        string_list = re.split(r"<br /><br />", string)
+        sentence_list = []
+        for string in  string_list:
+            string = re.sub(r"[^A-Za-z0-9():;.,!?\'`]", " ", string)   
+            string = re.sub(r"([.?!](\s*)){2,}",".", string) 
+            sentence_list_tmp = re.split(r'[;.!?]',string.strip())
+            sentence_list.extend(list(filter(None, sentence_list_tmp)))
 
         return sentence_list 
 

@@ -100,6 +100,7 @@ if __name__ == '__main__':
     config = deepcopy(args)
     config.fix_length = None
     config.sort_within_batch = True
+    config.max_size = 30000
 
     dataset_map[args.dataset].NESTING_FIELD = Field(batch_first=True, tokenize=Word_Tokenize(),  fix_length = config.fix_length )
     dataset_map[args.dataset].TEXT_FIELD = NestedField(dataset_map[args.dataset].NESTING_FIELD, tokenize=Sentence_Tokenize())
@@ -115,7 +116,8 @@ if __name__ == '__main__':
                                                               batch_size=args.batch_size,
                                                               device=args.gpu,
                                                               unk_init=UnknownWordVecCache.unk,
-                                                              sort_within_batch = config.sort_within_batch
+                                                              sort_within_batch = config.sort_within_batch,
+                                                              max_size= config.max_size
                                                               )
 
     
@@ -129,17 +131,18 @@ if __name__ == '__main__':
     config.optimizer_warper = True
     config.kernel_set = [1,2,3,4]
     config.word_num_hidden = 100
-    config.sentence_num_hidden = 50
+    config.sentence_num_hidden = 100
     config.weight_decay = 1e-5
     
     config.loss = None
     #label smoothing    
-    config.label_smoothing = True
+    config.label_smoothing = False
     config.std = 0.4
     config.smoothing = 0.05
     config.ls_mode = 'origin'
     # for vae
     config.vae_struct = False
+    config.vae_word_dim = 30000
 
     #front end cnn
     config.frontend_cnn = True
@@ -173,7 +176,7 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     optimizer = torch.optim.AdamW(parameter, lr=args.lr, betas=(0.9, 0.98), eps=1e-09, weight_decay=args.weight_decay, amsgrad=True)
     config.ow_factor = 2
-    config.ow_warmup = 6000
+    config.ow_warmup = 9000
     config.ow_model_size = 300
     if config.optimizer_warper:
         optimizer = NoamOpt( config.ow_model_size, config.ow_factor, config.ow_warmup, optimizer)
