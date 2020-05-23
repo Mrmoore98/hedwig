@@ -51,7 +51,7 @@ class WordLevelRNN(nn.Module):
         self.vae_struct = config.vae_struct
         self.frontend_cnn = config.frontend_cnn
         if self.frontend_cnn:
-            self.front_cnn = conv1d_same_padding( config.words_dim, word_num_hidden, 1, stride=1, dilation=1, bias=True)
+            self.front_cnn = conv1d_same_padding( config.words_dim, config.words_dim, 1, stride=1, dilation=1, bias=True)
 
     def forward(self, x):
         # x expected to be of dimensions--> (num_words, batch_size)
@@ -91,7 +91,7 @@ class WordLevelRNN(nn.Module):
             x = self.em_layer_norm(x)
             h, _ = self.GRU(x)
                   
-        h = self.relu(h)
+        # h = self.relu(h)
         word_vec = h.unsqueeze(0) if self.vae_struct else None
 
         #h: [length, bs, word dim]

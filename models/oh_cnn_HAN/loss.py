@@ -63,7 +63,7 @@ class VAELoss(nn.Module):
         self.real_min = 2.2e-16
         self.eulergamma = 0.5772
         self.eps = None
-        
+        data_path = '/home/s/CNN-BiLSTM2/hedwig-data/Conv_PGDS_Batch_5_11.pkl'
         with open(data_path, 'rb') as file:
             deconv_kernel = pickle.load(file)
 
@@ -90,28 +90,28 @@ class VAELoss(nn.Module):
         return torch.log(torch.max(input, self.real_min))
 
     def reparameterization(self, Wei_shape, Wei_scale):
-        self.eps = torch.empty_like(Wei_shape, dtype= torch.float64 ).uniform_(from=0, to=1)
-        theta = Wei_scale * tf.pow(-self.log_max(1 - eps), 1 / Wei_shape)
+        self.eps = torch.empty_like(Wei_shape, dtype= torch.float64 ).uniform_(0,1)
+        theta = Wei_scale * torch.pow(-self.log_max(1 - self.eps), 1 / Wei_shape)
         return theta
 
     def KL_GamWei(self, Gam_shape, Gam_scale, Wei_shape, Wei_scale):  # K_dim[i] * none
         KL_Part1 = self.eulergamma * (1 - 1 / Wei_shape) + self.log_max(Wei_scale / Wei_shape) + 1 + Gam_shape * self.log_max(Gam_scale)
         KL_Part2 = -1*torch.lgamma(Gam_shape) + (Gam_shape - 1) * (self.log_max(Wei_scale) - self.eulergamma / Wei_shape)
-        KL = KL_Part1 + KL_Part2 - Gam_scale * Wei_scale * tf.exp(torch.lgamma(1 + 1 / Wei_shape))
+        KL = KL_Part1 + KL_Part2 - Gam_scale * Wei_scale * torch.exp(torch.lgamma(1 + 1 / Wei_shape))
         return KL
 
     def Likeihood(self, Params, theta, origin_data):
         likelihood = 0
         Orgin_X, weight = self.to_oh(origin_data)
         PhiTheta_1 = self.deconv2d(theta, weight, Orgin_X.size(2), Orgin_X.size(3))
-        E_q = Orgin_X * log_max(PhiTheta_1) - PhiTheta_1 - torch.lgamma(Orgin_X + 1)
+        E_q = Orgin_X * self.log_max(PhiTheta_1) - PhiTheta_1 - torch.lgamma(Orgin_X + 1)
         likelihood = torch.sum(E_q)
         
         return likelihood
 
     def deconv2d(self, input, weight, expected_W, expected_H, stride=(1,1), dilation=(1,1), padding=(0,0)):
         
-        output_pad = (0,0)
+        output_pad = [None, None]
         output_pad[0] = expected_W - (input.size(2)-1)*stride[0] + 2*padding[0]- dilation[0]*(self.weight.size(0)-1) - 1
         output_pad[1] = expected_H - (input.size(3)-1)*stride[1] + 2*padding[1]- dilation[1]*(self.weight.size(1)-1) - 1
         output = F.conv_transpose2d(input, weight, output_padding = output_pad, bias = True)
@@ -121,7 +121,7 @@ class VAELoss(nn.Module):
         '''Adaptively adjust weight to accommodate input'''        
         # allocate weight 
         index_weight  = torch.unique(input).type(torch.cuda.LongTensor)
-        weight=self.self.deconv_kernel[:,index_weight,:,:])
+        weight=self.deconv_kernel[:,index_weight,:,:]
         index_one_hot = input.type(torch.cuda.LongTensor).unsqueeze(1)
         output        = self.zero_vec.repeat(*input.shape, 1).permute(0,3,1,2)
         output.scatter_(1, index_one_hot, self.fill_value)
@@ -132,8 +132,32 @@ class VAELoss(nn.Module):
 
 
 if __name__ == "__main__":
+
+    from copy import deepcopy
+
+    args = get_args()
+    config = deepcopy(args)
+    config.word_num_hidden = 100
+    config.sentence_num_hidden = 100
+    config.target_class = 10
+    config.vae_struct = True
+    config.residual = False
+    config.dropout_rate =0.5
     
     input = torch.randn(3, 5, requires_grad=True)
     target = torch.randn(3, 5)
-    output = Loss.apply('mse')(input, target)
+    data = torch.randn(2,3,5,100)
+    origin_data_index = torch.randint(2,3,5)
+    aa = Loss(config)
+
+
+
+    aa = SentLevelRNN(config)
+    sentence_len = 20
+    sentence_num = 10
+    batch_size = 5
+    sentence_vec = torch.randn(sentence_num, batch_size, 2*config.word_num_hidden)
+    word_vec = torch.randn(batch_size, sentence_num, sentence_len, 2*config.word_num_hidden).permute(1,2,0,3)
+    output = aa.apply('ELBO')(input, target, data, origin_data_index)
     output.backward()
+    import pdb; pdb.set_trace()

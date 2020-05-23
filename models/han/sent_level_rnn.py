@@ -56,15 +56,10 @@ class SentLevelRNN(nn.Module):
            vae2decoder = sentence_h
            sentence_h  = torch.mean(sentence_h, dim=1)
 
-        x = sentence_h
-        # x = self.relu(x)   
+        x = sentence_h  
         x = self.han_attention(x)
-        x_extra = self.mlp_layernorm(x)
-        x_extra = self.ff(x_extra)
-        x_extra = self.dropout(x_extra)
-        x_extra = torch.mean(x_extra, dim=0)
+        x = self.SenFfCat(x, self.ff)
         x = torch.sum(x, dim=0)
-        x = torch.cat((x, x_extra), dim=-1)
         x = self.fc_cat(x)
         return x
         

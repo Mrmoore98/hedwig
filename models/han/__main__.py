@@ -142,11 +142,11 @@ if __name__ == '__main__':
     config.vae_struct = False
 
     #front end cnn
-    config.frontend_cnn = False
+    config.frontend_cnn = True
 
 
     is_binary = True if config.target_class == 2 else False
-    config.is_binary = is_binary
+    config.is_binary = False
     print('Finished preprocess data in {:.0f}s'.format(time.time()-time_tmp))
     print('Dataset:', args.dataset)
     print('No. of target classes:', train_iter.dataset.NUM_CLASSES)
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     optimizer = torch.optim.AdamW(parameter, lr=args.lr, betas=(0.9, 0.98), eps=1e-09, weight_decay=args.weight_decay, amsgrad=True)
     config.ow_factor = 2
-    config.ow_warmup = 20000
+    config.ow_warmup = 6000
     config.ow_model_size = 300
     if config.optimizer_warper:
         optimizer = NoamOpt( config.ow_model_size, config.ow_factor, config.ow_warmup, optimizer)
@@ -195,9 +195,9 @@ if __name__ == '__main__':
         test_evaluator.ignore_lengths = True
 
     if hasattr(dev_evaluator, 'is_binary'):
-        dev_evaluator.is_binary = is_binary
+        dev_evaluator.is_binary = config.is_binary
     if hasattr(test_evaluator, 'is_binary'):
-        test_evaluator.is_binary = is_binary
+        test_evaluator.is_binary = config.is_binary
 
     trainer_config = {
         'optimizer': optimizer,
@@ -208,7 +208,7 @@ if __name__ == '__main__':
         'logger': logger,
         'is_multilabel': dataset_class.IS_MULTILABEL,
         'ignore_lengths': True,
-        'Binary': is_binary,
+        'Binary': config.is_binary,
         'optimizer_warper': config.optimizer_warper,
         'loss': config.loss
     }
