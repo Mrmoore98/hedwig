@@ -74,6 +74,7 @@ class VAELoss(nn.Module):
         self.zero_vec = nn.Parameter(torch.zeros(1, config.vae_word_dim), requires_grad = False)
         self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, 2*2*config.word_num_hidden, 1, groups=2)
         self.word_num_hidden = config.word_num_hidden
+        self.bias = nn.Parameter(torch.empty(config.vae_word_dim).uniform_(-0.1, 0.1))
         self.fill_value = 1
     
     def ELBO(self, scores, label, W, origin_data):
@@ -105,8 +106,8 @@ class VAELoss(nn.Module):
 
     def Likeihood(self, theta, origin_data, Param=None):
         likelihood = 0
-        Orgin_X, weight = self.to_oh(origin_data)
-        PhiTheta_1 = self.deconv2d(theta, weight, Orgin_X.size(2), Orgin_X.size(3))
+        Orgin_X, weight, bias = self.to_oh(origin_data)
+        PhiTheta_1 = self.same_pad_conv2d(theta, weight, bias)
         E_q = Orgin_X * self.log_max(PhiTheta_1) - PhiTheta_1 - torch.lgamma(Orgin_X + 1)
         likelihood = torch.sum(E_q)
         
@@ -115,8 +116,8 @@ class VAELoss(nn.Module):
     def deconv2d(self, input, weight, expected_W, expected_H, stride=(1,1), dilation=(1,1), padding=(0,0)):
         
         output_pad = [None, None]
-        output_pad[0] = expected_W - (input.size(2)-1)*stride[0] + 2*padding[0]- dilation[0]*(weight.size(0)-1) - 1
-        output_pad[1] = expected_H - (input.size(3)-1)*stride[1] + 2*padding[1]- dilation[1]*(weight.size(1)-1) - 1
+        output_pad[0] = (input.size(2)-1)*stride[0] - expected_W - 2*padding[0] + dilation[0]*(weight.size(0)-1) + 1
+        output_pad[1] = ((input.size(3)-1)*stride[1] - expected_H + dilation[1]*(weight.size(1)-1) + 1)/2
         
         output = F.conv_transpose2d(input, weight, output_padding = output_pad)
         return output
@@ -126,12 +127,13 @@ class VAELoss(nn.Module):
         # allocate weight 
         index_weight  = torch.unique(input)
         weight=self.deconv_kernel[:,index_weight,:,:]
+        bias  =self.bias[index_weight] 
         index_one_hot = input.unsqueeze(1)
         output        = self.zero_vec.repeat(*input.shape, 1).permute(0,3,1,2)
         output.scatter_(1, index_one_hot, self.fill_value)
         compressed_output = output[:, index_weight, :, :]
 
-        return compressed_output, weight
+        return compressed_output, weight, bias
     
     def cross_entropy(self, scores, label):
 
@@ -144,6 +146,28 @@ class VAELoss(nn.Module):
         loss = F.cross_entropy(scores, torch.argmax(label, dim=-1))
 
         return loss
+    
+    def same_pad_conv2d(self, input, kernel, bias, stride=1,  dilation=1, groups=1):
+        '''preserved height&width'''
+        input_size_H = input.shape[2]
+        input_size_W = input.shape[3]
+        kernel_H     = kernel.shape[2]
+        kernel_W     = kernel.shape[3]    
+        # effective_filter_size_rows = (kernel_H - 1) * dilation[0] + 1
+        # effective_filter_size_rows = (kernel_W - 1) * dilation[0] + 1
+
+        tmp_output_size   = (input_size_H + stride - 1) // stride
+        padding_needed_H  = max(0, (tmp_output_size - 1) * stride + kernel_H - input_size_H)
+        h_odd = (padding_needed_H %2 !=0)
+
+        tmp_output_size   = (input_size_W + stride - 1) // stride
+        padding_needed_W  = max(0, (tmp_output_size - 1) * stride + kernel_W - input_size_W)
+        w_odd = (padding_needed_W % 2 != 0)
+
+        if h_odd or w_odd:
+           input = F.pad(input, [0, int(w_odd), 0, int(h_odd)])#reverse 
+
+        return F.conv2d(input, kernel, bias, stride, padding = (int(padding_needed_H)//2, int(padding_needed_W)//2), dilation=dilation, groups=groups)
 
 
 
