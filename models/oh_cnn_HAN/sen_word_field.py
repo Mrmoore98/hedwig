@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from torchtext.data.dataset import Dataset
 from torchtext.data import Field
+
 class SentenceWord_field(Field):
 
     def __init__(self, nesting_field, use_vocab=True, init_token=None, eos_token=None,
@@ -226,7 +227,7 @@ class SentenceWord_field(Field):
             arrs, decoder_arrs = arrs
             decoder_batch = []
             for arr in decoder_arrs:
-                numericalized_ex = self.nesting_field.numericalize(arr, device=device, train=train)
+                numericalized_ex = self.decoder_numericalize(arr)
                 decoder_batch.append(numericalized_ex)
          
 
@@ -250,3 +251,13 @@ class SentenceWord_field(Field):
             return (padded_batch, decoder_batch)
     
         return padded_batch
+    
+    def decoder_numericalize(self, arr):
+
+        if self.use_vocab:
+            if self.sequential:
+                arr = [[self.vocab.stoi[x] for x in ex] for ex in arr]
+            else:
+                arr = [self.vocab.stoi[x] for x in arr]
+
+        return arr
