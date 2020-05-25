@@ -42,8 +42,7 @@ class WordLevelRNN(nn.Module):
             self.cnn_layer = nn.ModuleList()
             self.kernel_set = config.kernel_set
             for kernel_size in self.kernel_set: 
-                new_cnn = conv1d_same_padding( config.words_dim, 2 * word_num_hidden, kernel_size,\
-                        stride=1, dilation=1, bias=True)
+                new_cnn = conv1d_same_padding( config.words_dim, 2 * word_num_hidden, kernel_size, stride=1, dilation=2, bias=True)
                 self.cnn_layer.append(new_cnn)
 
             self.reduce_layer = nn.Linear(len(self.kernel_set)*word_num_hidden*2, word_num_hidden*2, bias=True)
@@ -51,7 +50,7 @@ class WordLevelRNN(nn.Module):
         self.vae_struct = config.vae_struct
         self.frontend_cnn = config.frontend_cnn
         if self.frontend_cnn:
-            self.front_cnn = conv1d_same_padding( config.words_dim, config.words_dim, 1, stride=1, dilation=1, bias=True)
+            self.front_cnn = conv1d_same_padding( config.words_dim, config.words_dim, 3, stride=1, dilation=1, bias=True)
 
     def forward(self, x):
         # x expected to be of dimensions--> (num_words, batch_size)
@@ -75,7 +74,7 @@ class WordLevelRNN(nn.Module):
             x = self.front_cnn(x)
             x = self.relu(x)
             x = x.permute(2,0,1)
-
+            
         if self.CNN:
             x = x.permute(1,2,0)
             x = self.cnn_bn(x)
@@ -117,4 +116,4 @@ def conv1d_same_padding(inputs, out_channels, kernel_size, bias=None, stride=1, 
     if odd:
         inputs = F.pad(inputs, [0, 1])
 
-    return nn.Conv1d(inputs, out_channels, bias, stride, padding= padding // 2, dilation=dilation, groups=groups)
+    return nn.Conv1d(inputs, out_channels, kernel_size, stride, padding= padding // 2, dilation=dilation, groups=groups,bias=bias)
