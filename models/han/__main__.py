@@ -25,6 +25,7 @@ from models.han.model import HAN
 from models.oh_cnn_HAN.xls_writer import write_xls
 from models.oh_cnn_HAN.optim_Noam import NoamOpt
 from models.oh_cnn_HAN.sentence_tokenize import Sentence_Tokenize, Word_Tokenize
+from models.oh_cnn_HAN.sen_word_field import SentenceWord_field 
 
 class UnknownWordVecCache(object):
     """
@@ -101,30 +102,6 @@ if __name__ == '__main__':
     config.fix_length = None
     config.sort_within_batch = True
     config.max_size = 30000
-
-    dataset_map[args.dataset].NESTING_FIELD = Field(batch_first=True, tokenize=Word_Tokenize(),  fix_length = config.fix_length )
-    dataset_map[args.dataset].TEXT_FIELD = NestedField(dataset_map[args.dataset].NESTING_FIELD, tokenize=Sentence_Tokenize())
-
-    time_tmp = time.time()
-    if args.dataset not in dataset_map:
-        raise ValueError('Unrecognized dataset')
-    else:
-        dataset_class = dataset_map[args.dataset]
-        train_iter, dev_iter, test_iter = dataset_class.iters(args.data_dir,
-                                                              args.word_vectors_file,
-                                                              args.word_vectors_dir,
-                                                              batch_size=args.batch_size,
-                                                              device=args.gpu,
-                                                              unk_init=UnknownWordVecCache.unk,
-                                                              sort_within_batch = config.sort_within_batch,
-                                                              max_size= config.max_size
-                                                              )
-
-    
-    config.dataset = train_iter.dataset
-    config.target_class = train_iter.dataset.NUM_CLASSES
-    config.words_num = len(train_iter.dataset.TEXT_FIELD.vocab)
-
     config.residual = False
     config.cnn = False
     config.dropout_rate = 0.5
@@ -147,6 +124,30 @@ if __name__ == '__main__':
     #front end cnn
     config.frontend_cnn = True
 
+
+    dataset_map[args.dataset].NESTING_FIELD = Field(batch_first=True, tokenize=Word_Tokenize(),  fix_length = config.fix_length )
+    dataset_map[args.dataset].TEXT_FIELD = SentenceWord_field(dataset_map[args.dataset].NESTING_FIELD, tokenize=Sentence_Tokenize(),\
+                                                              vae_struct=config.vae_struct)
+
+    time_tmp = time.time()
+    if args.dataset not in dataset_map:
+        raise ValueError('Unrecognized dataset')
+    else:
+        dataset_class = dataset_map[args.dataset]
+        train_iter, dev_iter, test_iter = dataset_class.iters(args.data_dir,
+                                                              args.word_vectors_file,
+                                                              args.word_vectors_dir,
+                                                              batch_size=args.batch_size,
+                                                              device=args.gpu,
+                                                              unk_init=UnknownWordVecCache.unk,
+                                                              sort_within_batch = config.sort_within_batch,
+                                                              max_size= config.max_size
+                                                              )
+
+    
+    config.dataset = train_iter.dataset
+    config.target_class = train_iter.dataset.NUM_CLASSES
+    config.words_num = len(train_iter.dataset.TEXT_FIELD.vocab)
 
     is_binary = True if config.target_class == 2 else False
     config.is_binary = False

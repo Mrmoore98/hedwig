@@ -11,7 +11,7 @@ from torchtext.vocab import Vocab, SubwordVocab
 
 
 
-class NestedField(Field):
+class SentenceWord_field(Field):
     """A nested field.
 
     A nested field holds another field (called *nesting field*), accepts an untokenized
@@ -64,7 +64,7 @@ class NestedField(Field):
                  fix_length=None, dtype=torch.long, preprocessing=None,
                  postprocessing=None, tokenize=None, tokenizer_language='en',
                  include_lengths=False, pad_token='<pad>',
-                 pad_first=False, truncate_first=False):
+                 pad_first=False, truncate_first=False, vae_struct= False):
         if isinstance(nesting_field, NestedField):
             raise ValueError('nesting field must not be another NestedField')
         if nesting_field.include_lengths:
@@ -93,6 +93,7 @@ class NestedField(Field):
         self.nesting_field = nesting_field
         # in case the user forget to do that
         self.nesting_field.batch_first = True
+        self.vae_struct = vae_struct
 
     def preprocess(self, xs):
         """Preprocess a single example.
@@ -184,6 +185,8 @@ class NestedField(Field):
         word_lengths = []
         final_padded = []
         max_sen_len = len(padded[0])
+        if self.vae_struct:
+            decoder_arrs = minibatch
         for (pad, lens), sentence_len in zip(padded_with_lengths, sentence_lengths):
             if sentence_len == max_sen_len:
                 lens = lens
@@ -210,6 +213,8 @@ class NestedField(Field):
         self.include_lengths = old_include_lengths
         if self.include_lengths:
             return padded, sentence_lengths, word_lengths
+        if self.vae_struct:
+            return padded, decoder_arrs
         return padded
 
     def build_vocab(self, *args, **kwargs):
@@ -276,6 +281,14 @@ class NestedField(Field):
         self.nesting_field.include_lengths = False
         if self.include_lengths:
             arrs, sentence_lengths, word_lengths = arrs
+        
+        if self.vae_struct:
+            arrs, decoder_arrs = arrs
+            decoder_batch = []
+            for arr in decoder_arrs:
+                numericalized_ex = self.nesting_field.numericalize(arr, device=device)
+                decoder_batch.append(numericalized_ex)
+         
 
         for arr in arrs:
             numericalized_ex = self.nesting_field.numericalize(
@@ -289,4 +302,8 @@ class NestedField(Field):
                 torch.tensor(sentence_lengths, dtype=self.dtype, device=device)
             word_lengths = torch.tensor(word_lengths, dtype=self.dtype, device=device)
             return (padded_batch, sentence_lengths, word_lengths)
+
+        if self.vae_struct:
+            return (padded_batch, decoder_batch)
+        
         return padded_batch

@@ -81,7 +81,7 @@ class ClassificationTrainer(Trainer):
             else:
                 if 'ignore_lengths' in self.config and self.config['ignore_lengths']:
                     if self.config_main.vae_struct:
-                        scores, feature_map = self.model(batch.text)
+                        scores, feature_map = self.model(batch.text[0])
                     else:
                         scores = self.model(batch.text)
                 else:
