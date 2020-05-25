@@ -62,22 +62,23 @@ class VAELoss(nn.Module):
 
     def __init__(self, config):
         super(VAELoss, self).__init__()  
-        self.real_min = 2.2e-16
-        self.eulergamma = 0.5772
-        self.eps = None
-        data_path = '/home/s/CNN-BiLSTM2/hedwig-data/Conv_PGDS_Batch_5_11.pkl'
-        with open(data_path, 'rb') as file:
-            deconv_kernel = pickle.load(file)
-        deconv_kernel['D'] = np.concatenate((deconv_kernel['D'],np.random.rand(1000,1,3)),axis=1)   
-        deconv_kernel = torch.from_numpy(deconv_kernel['D']).reshape(1000, 30000, 3, 1).permute(1,0,2,3)
-        self.deconv_kernel = nn.Parameter(deconv_kernel, requires_grad = False)
-        self.zero_vec = nn.Parameter(torch.zeros(1, config.vae_word_dim), requires_grad = False)
-        self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, 2*1000, 1, groups=2)
-        self.word_num_hidden = config.word_num_hidden
-        self.bias = nn.Parameter(torch.empty(config.vae_word_dim, dtype= torch.float64).uniform_(-0.1, 0.1))
-        self.fill_value = 1
-        self.label_smoothing = LabelSmoothing(config)
-        self.label_smooth = config.label_smoothing
+        if False:
+            self.real_min = 2.2e-16
+            self.eulergamma = 0.5772
+            self.eps = None
+            data_path = '/home/s/CNN-BiLSTM2/hedwig-data/Conv_PGDS_Batch_5_11.pkl'
+            with open(data_path, 'rb') as file:
+                deconv_kernel = pickle.load(file)
+            deconv_kernel['D'] = np.concatenate((deconv_kernel['D'],np.random.rand(1000,1,3)),axis=1)   
+            deconv_kernel = torch.from_numpy(deconv_kernel['D']).reshape(1000, 30000, 3, 1).permute(1,0,2,3)
+            self.deconv_kernel = nn.Parameter(deconv_kernel, requires_grad = False)
+            self.zero_vec = nn.Parameter(torch.zeros(1, config.vae_word_dim), requires_grad = False)
+            self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, 2*1000, 1, groups=2)
+            self.word_num_hidden = config.word_num_hidden
+            self.bias = nn.Parameter(torch.empty(config.vae_word_dim, dtype= torch.float64).uniform_(-0.1, 0.1))
+            self.fill_value = 1
+            self.label_smoothing = LabelSmoothing(config)
+            self.label_smooth = config.label_smoothing
     
     def ELBO(self, scores, label, W, origin_data):
         
