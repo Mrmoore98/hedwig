@@ -6,7 +6,6 @@ from tqdm import tqdm
 
 from torchtext.data.dataset import Dataset
 from torchtext.data import Field
-
 class SentenceWord_field(Field):
 
     def __init__(self, nesting_field, use_vocab=True, init_token=None, eos_token=None,
@@ -61,7 +60,6 @@ class SentenceWord_field(Field):
 
     def pad(self, minibatch):
         """Pad a batch of examples using this field.
-
         If ``self.nesting_field.sequential`` is ``False``, each example in the batch must
         be a list of string tokens, and pads them as if by a ``Field`` with
         ``sequential=True``. Otherwise, each example must be a list of list of tokens.
@@ -69,7 +67,6 @@ class SentenceWord_field(Field):
         ``self.nesting_field.fix_length`` if provided, or otherwise to the length of the
         longest list of tokens in the batch. Next, using this field, pads the result by
         filling short examples with ``self.nesting_field.pad_token``.
-
         Example:
             >>> import pprint
             >>> pp = pprint.PrettyPrinter(indent=4)
@@ -92,12 +89,10 @@ class SentenceWord_field(Field):
                     ['<w>', 'c', 'r', 'i', 'e', 's', '</w>'],
                     ['<w>', '</s>', '</w>', '<c>', '<c>', '<c>', '<c>'],
                     ['<c>', '<c>', '<c>', '<c>', '<c>', '<c>', '<c>']]]
-
         Arguments:
             minibatch (list): Each element is a list of string if
                 ``self.nesting_field.sequential`` is ``False``, a list of list of string
                 otherwise.
-
         Returns:
             list: The padded minibatch. or (padded, sentence_lens, word_lengths)
         """
@@ -132,8 +127,6 @@ class SentenceWord_field(Field):
         word_lengths = []
         final_padded = []
         max_sen_len = len(padded[0])
-        if self.vae_struct:
-            decoder_arrs = minibatch
         for (pad, lens), sentence_len in zip(padded_with_lengths, sentence_lengths):
             if sentence_len == max_sen_len:
                 lens = lens
@@ -160,13 +153,13 @@ class SentenceWord_field(Field):
         self.include_lengths = old_include_lengths
         if self.include_lengths:
             return padded, sentence_lengths, word_lengths
+
         if self.vae_struct:
-            return padded, decoder_arrs
+            return padded, minibatch
         return padded
 
     def build_vocab(self, *args, **kwargs):
         """Construct the Vocab object for nesting field and combine it with this field's vocab.
-
         Arguments:
             Positional arguments: Dataset objects or other iterable data
                 sources from which to construct the Vocab object that
@@ -205,52 +198,55 @@ class SentenceWord_field(Field):
         self.nesting_field.build_vocab(*flattened, **kwargs)
         super(SentenceWord_field, self).build_vocab()
         self.vocab.extend(self.nesting_field.vocab)
-        self.vocab.freqs = self.nesting_field.vocab.freqs.copy()
         if old_vectors is not None:
             self.vocab.load_vectors(old_vectors,
                                     unk_init=old_unk_init, cache=old_vectors_cache)
 
         self.nesting_field.vocab = self.vocab
 
-    def numericalize(self, arrs, device=None):
+    def numericalize(self, arrs, device=None, train=True):
         """Convert a padded minibatch into a variable tensor.
-
         Each item in the minibatch will be numericalized independently and the resulting
         tensors will be stacked at the first dimension.
-
         Arguments:
             arr (List[List[str]]): List of tokenized and padded examples.
-            device (str or torch.device): A string or instance of `torch.device`
-                specifying which device the Variables are going to be created on.
-                If left as default, the tensors will be created on cpu. Default: None.
+            device (int): Device to create the Variable's Tensor on.
+                Use -1 for CPU and None for the currently active GPU device.
+                Default: None.
+            train (bool): Whether the batch is for a training set. If False, the Variable
+                will be created with volatile=True. Default: True.
         """
         numericalized = []
         self.nesting_field.include_lengths = False
         if self.include_lengths:
             arrs, sentence_lengths, word_lengths = arrs
-        
+
+                
         if self.vae_struct:
             arrs, decoder_arrs = arrs
             decoder_batch = []
             for arr in decoder_arrs:
-                numericalized_ex = self.nesting_field.numericalize(arr, device=device)
+                numericalized_ex = self.nesting_field.numericalize(arr, device=device, train=train)
                 decoder_batch.append(numericalized_ex)
          
 
         for arr in arrs:
             numericalized_ex = self.nesting_field.numericalize(
-                arr, device=device)
+                arr, device=device, train=train)
             numericalized.append(numericalized_ex)
         padded_batch = torch.stack(numericalized)
 
         self.nesting_field.include_lengths = True
         if self.include_lengths:
-            sentence_lengths = \
-                torch.tensor(sentence_lengths, dtype=self.dtype, device=device)
-            word_lengths = torch.tensor(word_lengths, dtype=self.dtype, device=device)
-            return (padded_batch, sentence_lengths, word_lengths)
-
+            sentence_lengths = torch.LongTensor(sentence_lengths)
+            word_lengths = torch.LongTensor(word_lengths)
+            if device == -1:
+                return (padded_batch, sentence_lengths, word_lengths)
+            else:
+                return (padded_batch,
+                        sentence_lengths.cuda(device), word_lengths.cuda(device))
+        
         if self.vae_struct:
             return (padded_batch, decoder_batch)
-        
+    
         return padded_batch
