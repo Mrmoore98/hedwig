@@ -75,7 +75,7 @@ if __name__ == '__main__':
     tokenizer = BertTokenizer.from_pretrained(pretrained_vocab_path)
 
     train_examples = None
-    num_train_optimization_steps = None
+    num_train_optimization_steps = 1
     if not args.trained_model:
         train_examples = processor.get_train_examples(args.data_dir)
         num_train_optimization_steps = int(

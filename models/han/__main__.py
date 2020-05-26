@@ -101,7 +101,7 @@ if __name__ == '__main__':
     config = deepcopy(args)
     config.fix_length = None
     config.sort_within_batch = True
-    config.max_size = 30000
+    config.max_size = None
     config.residual = False
     config.cnn = False
     config.dropout_rate = 0.5
@@ -113,12 +113,12 @@ if __name__ == '__main__':
     
     config.loss = None
     #label smoothing    
-    config.label_smoothing = False
+    config.label_smoothing = True
     config.std = 0.4
     config.smoothing = 0.05
     config.ls_mode = 'origin'
     # for vae
-    config.vae_struct = True
+    config.vae_struct = False
     config.vae_word_dim = 30000
     config.decoder_dataset ='IMDB_10'
     config.decoder_channel =200
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     optimizer = torch.optim.AdamW(parameter, lr=args.lr, betas=(0.9, 0.98), eps=1e-09, weight_decay=args.weight_decay, amsgrad=True)
     config.ow_factor = 2
-    config.ow_warmup = 9000
+    config.ow_warmup = 20000
     config.ow_model_size = 300
     if config.optimizer_warper:
         optimizer = NoamOpt( config.ow_model_size, config.ow_factor, config.ow_warmup, optimizer)
@@ -232,7 +232,7 @@ if __name__ == '__main__':
 
     
     # Calculate dev and test metrics
-    if hasattr(trainer, 'snapshot_path'):
+    if hasattr(trainer, 'snapshot_path') and not args.trained_model:
         model = torch.load(trainer.snapshot_path)
 
     evaluate_dataset('dev', dataset_map[args.dataset], model, None, dev_iter, args.batch_size,

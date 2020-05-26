@@ -1,14 +1,13 @@
-from Forward_Backward_augment_decoder import *
-from Utils import *
-from Config import *
-from GPU_Sampler import *
-import PGBN_sampler
+from .Forward_Backward_augment_decoder import *
+from .Config import *
+from .GPU_Sampler import *
+from .PGBN_sampler import *
 #import Forward_augment
 import scipy
 import numpy as np
 import time
 import copy
-from Utils import *
+from .Utils import *
 
 
 def updatePhi_Pi(sweepi, X_train, Params, Data, SuperParams, MBt, Setting, W_left, W_right, epsit):

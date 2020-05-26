@@ -1,4 +1,4 @@
-from Utils import *
+from .Utils import *
 
 Setting = Empty()
 

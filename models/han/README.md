@@ -7,11 +7,12 @@ Implementation of Hierarchical Attention Networks for Documnet Classification [H
 To run the model on Reuters dataset on static, just run the following from the project working directory.
 
 ```
-python -m models.han --dataset IMDB --mode non-static --batch-size 32 --lr 0.001 --epochs 30 --seed 3435
+CUDA_VISIBLE_DEVICES=1 python -m models.han --dataset IMDB_2 --mode non-static --batch-size 20 --lr 0.001 --epochs 30 --seed 2345
+CUDA_VISIBLE_DEVICES=2 python -m models.bert --dataset IMDB --model bert-base-uncased --max-seq-length 512 --batch-size 16 --lr 2e-5 --epochs 30 --trained-model /home/s/CNN-BiLSTM2/hedwig/model_checkpoints/bert/IMDB/2020-05-17_13-20-03.pt
+
 ```
 
 The best model weights will be saved in
-
 ```
 models/han/saves/Reuters/best_model.pt
 ```

@@ -1,6 +1,6 @@
-from Utils import *
+from .Utils import *
 import numpy as np
-from Read_IMDB import Load_Data
+from .Read_IMDB import Load_Data
 
 
 
