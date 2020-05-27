@@ -5,7 +5,7 @@ Created on Sat Oct  7 17:15:34 2017
 
 @author: Chaojie
 """
-import GPU_Sampler
+from .GPU_Sampler import *
 import numpy as np
 import numpy.ctypeslib as npct
 #from sample import Sampler
@@ -18,19 +18,19 @@ array_1d_double = npct.ndpointer(dtype=np.double,ndim=1,flags='C')
 array_int = npct.ndpointer(dtype=np.int32,ndim=0,flags='C')
 ll = ctypes.cdll.LoadLibrary   
 
-Multi_lib = ll("./libMulti_Sample.so")
+Multi_lib = ll("./BCPGDS_decoder/libMulti_Sample.so")
 Multi_lib.Multi_Sample.restype = None
 Multi_lib.Multi_Sample.argtypes = [array_2d_double,array_2d_double,array_2d_double,array_2d_double,array_2d_double, c_int, c_int, c_int]
 Multi_lib.Multi_Input.restype = None
 Multi_lib.Multi_Input.argtypes = [array_2d_double,array_2d_double,array_2d_double,array_2d_double,array_2d_double, c_int, c_int]
 
 
-Crt_Multi_lib = ll("./libCrt_Multi_Sample.so")
+Crt_Multi_lib = ll("./BCPGDS_decoder/libCrt_Multi_Sample.so")
 Crt_Multi_lib.Crt_Multi_Sample.restype = None
 Crt_Multi_lib.Crt_Multi_Sample.argtypes = [array_2d_double,array_2d_double,array_2d_double,array_2d_double,array_2d_double, c_int, c_int, c_int]
 
 
-Crt_lib =  ll("./libCrt_Sample.so")
+Crt_lib =  ll("./BCPGDS_decoder/libCrt_Sample.so")
 Crt_lib.Crt_Sample.restype = None
 Crt_lib.Crt_Sample.argtypes = [array_2d_double,array_2d_double, array_2d_double, c_int,c_int]
 

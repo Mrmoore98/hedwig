@@ -91,6 +91,8 @@ class BertEvaluator(object):
         precision = metrics.precision_score(target_labels, predicted_labels, average='micro')
         recall = metrics.recall_score(target_labels, predicted_labels, average='micro')
         f1 = metrics.f1_score(target_labels, predicted_labels, average='micro')
+        mse = metrics.mean_squared_error(target_labels, predicted_labels)
+
         avg_loss = total_loss / nb_eval_steps
 
-        return [accuracy, precision, recall, f1, avg_loss], ['accuracy', 'precision', 'recall', 'f1', 'avg_loss']
+        return [accuracy, precision, recall, f1, avg_loss, mse], ['accuracy', 'precision', 'recall', 'f1', 'avg_loss', 'mse']
