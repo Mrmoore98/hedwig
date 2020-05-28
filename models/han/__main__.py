@@ -99,9 +99,12 @@ if __name__ == '__main__':
         'ELEC':ELEC,
     }
     config = deepcopy(args)
+    #dataset
     config.fix_length = None
     config.sort_within_batch = True
-    config.max_size = None
+    config.max_size = 30000
+    config.bucket_size = 1000
+
     config.residual = False
     config.cnn = False
     config.dropout_rate = 0.5
@@ -144,6 +147,7 @@ if __name__ == '__main__':
                                                               unk_init=UnknownWordVecCache.unk,
                                                               sort_within_batch = config.sort_within_batch,
                                                               max_size= config.max_size
+                                                              bucket_size=config.bucket_size
                                                               )
 
     
