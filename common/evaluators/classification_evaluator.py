@@ -66,9 +66,10 @@ class ClassificationEvaluator(Evaluator):
         recall = metrics.recall_score(target_labels, predicted_labels, average='micro')
         f1 = metrics.f1_score(target_labels, predicted_labels, average='micro')
         avg_loss = total_loss / len(self.data_loader.dataset.examples)
+        mse = metrics.mean_squared_error(target_labels, predicted_labels)
 
         if hasattr(self.model, 'beta_ema') and self.model.beta_ema > 0:
             # Temporal averaging
             self.model.load_params(old_params)
 
-        return [accuracy, precision, recall, f1, avg_loss], ['accuracy', 'precision', 'recall', 'f1', 'cross_entropy_loss']
+        return [accuracy, precision, recall, f1, avg_loss, mse], ['accuracy', 'precision', 'recall', 'f1', 'cross_entropy_loss','MSE']

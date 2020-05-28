@@ -63,10 +63,10 @@ class ClassificationTrainer(Trainer):
         self.initial_data_time = time.time()-itmp
         tmp_batch = time.time()
 
-        
+        n_correct, n_total = 0, 0
         for batch_idx, batch in enumerate(self.train_loader):
             
-            n_correct, n_total = 0, 0
+            
             self.batch_time += time.time() - tmp_batch 
             initialize_time_tmp = time.time()
             
@@ -152,7 +152,7 @@ class ClassificationTrainer(Trainer):
             if hasattr(self.model, 'ar') and self.model.ar:
                 loss = loss + self.model.ar * (rnn_outs[:]).pow(2).mean()
 
-            n_total = batch.batch_size
+            n_total += batch.batch_size
             train_acc = 100. * n_correct / n_total
             loss.backward()
             self.optimizer.step()
@@ -168,9 +168,9 @@ class ClassificationTrainer(Trainer):
                                                loss.item(), train_acc))
                 self.train_result.append((train_acc,loss.item()))
             if self.iterations % (300*3) == 1:
-                dev_acc, dev_precision, dev_recall, dev_f1, dev_loss = self.dev_evaluator.get_scores()[0]
+                dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse = self.dev_evaluator.get_scores()[0]
                 print(self.dev_log_template.format(time.time() - self.start, 1, self.iterations, 1, 1,
-                                                            dev_acc, dev_precision, dev_recall, dev_f1, dev_loss))
+                                                            dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse))
 
                                 
             self.learning_time += time.time()-learning_tmp
@@ -190,12 +190,12 @@ class ClassificationTrainer(Trainer):
             print("Performing evluation!")
             # Evaluate performance on validation set
             dev_time_tmp = time.time()
-            dev_acc, dev_precision, dev_recall, dev_f1, dev_loss = self.dev_evaluator.get_scores()[0]
+            dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse = self.dev_evaluator.get_scores()[0]
             self.dev_time += time.time() - dev_time_tmp
             # Print validation results
             # print('\n' + dev_header)
             print(self.dev_log_template.format(time.time() - self.start, epoch, self.iterations, epoch, epochs,
-                                               dev_acc, dev_precision, dev_recall, dev_f1, dev_loss))
+                                               dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse))
             print("tot:{:.0f}, batch{:.0f}, model:{:.0f}, learning:{:.0f}, dev:{:.0f}, initial:{:.0f}, initial_data{:.0f}".format(time.time() - self.start, self.batch_time, self.model_process_time, self.learning_time, self.dev_time, self.initialize_time, self.initial_data_time))
             
             self.dev_result.append([dev_acc, dev_loss, time.time() - self.start])
