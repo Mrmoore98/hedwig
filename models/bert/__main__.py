@@ -20,9 +20,13 @@ from models.bert.args import get_args
 
 def evaluate_split(model, processor, tokenizer, args, split='dev'):
     evaluator = BertEvaluator(model, processor, tokenizer, args, split)
-    accuracy, precision, recall, f1, avg_loss = evaluator.get_scores(silent=True)[0]
-    print('\n' + LOG_HEADER)
-    print(LOG_TEMPLATE.format(split.upper(), accuracy, precision, recall, f1, avg_loss))
+    scores, metric_names = evaluator.get_scores(silent=True)
+    print('Evaluation metrics for')
+    print(metric_names)
+    print(scores)
+    # accuracy, precision, recall, f1, avg_loss = evaluator.get_scores(silent=True)[0]
+    # print('\n' + LOG_HEADER)
+    # print(LOG_TEMPLATE.format(split.upper(), accuracy, precision, recall, f1, avg_loss))
 
 
 if __name__ == '__main__':

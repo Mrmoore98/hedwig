@@ -18,7 +18,7 @@ class LabelSmoothing(nn.Module):
         self.mode = config.ls_mode
         self.std  = config.std
         self.target_class = config.target_class
-        self.x = torch.linspace(0., self.target_class, steps= self.target_class).repeat(config.batch_size,1)
+        self.x = torch.linspace(0., self.target_class, steps= self.target_class).cuda()
         self.log_softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x, target):
@@ -40,7 +40,7 @@ class LabelSmoothing(nn.Module):
 
     def normal(self, mean):
 
-        x = self.x
+        x = self.x.repeat(mean.size(0),1)
         std = mean.data.clone().fill_(self.std)
         x = (x-mean)/std
         x = -1*torch.pow(x,2)/2 

@@ -114,9 +114,9 @@ if __name__ == '__main__':
     config.loss = None
     #label smoothing    
     config.label_smoothing = True
-    config.std = 0.4
+    config.std = 0.05
     config.smoothing = 0.05
-    config.ls_mode = 'origin'
+    config.ls_mode = 'normal_dis'
     # for vae
     config.vae_struct = False
     config.vae_word_dim = 30000

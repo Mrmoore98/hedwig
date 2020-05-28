@@ -41,13 +41,13 @@ class ClassificationTrainer(Trainer):
         self.log_template = ' '.join(
             '{:>6.0f},{:>5.0f},{:>9.0f},{:>5.0f}/{:<5.0f} {:>7.0f}%,{:>8.6f},{:12.4f}'.split(','))
         self.dev_log_template = ' '.join(
-            '{:>6.0f},{:>5.0f},{:>9.0f},{:>5.0f}/{:<5.0f} {:>7.4f},{:>8.4f},{:8.4f},{:12.4f},{:12.4f}'.split(','))
+            '{:>6.0f},{:>5.0f},{:>9.0f},{:>5.0f}/{:<5.0f} {:>7.4f},{:>8.4f},{:8.4f},{:12.4f},{:12.4f},{:>8.4f}'.split(','))
         
         self.train_result = []
         self.dev_result = [] #[fig,fig,list]
 
-        self.label_smoothing = LabelSmoothing(config_main)
-        self.Loss = Loss(config_main)
+        self.label_smoothing = LabelSmoothing(config_main).cuda()
+        self.Loss = Loss(config_main).cuda()
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.snapshot_path = os.path.join(self.model_outfile, self.train_loader.dataset.NAME, '%s.pt' % timestamp)
@@ -182,8 +182,8 @@ class ClassificationTrainer(Trainer):
         dev_header = '  Time Epoch Iteration Progress     Dev/Acc. Dev/Pr.  Dev/Recall   Dev/F1       Dev/Loss'
         os.makedirs(self.model_outfile, exist_ok=True)
         os.makedirs(os.path.join(self.model_outfile, self.train_loader.dataset.NAME), exist_ok=True)
-
-        [self.Data, self.Setting, self.Params, self.SuperParams, self.epsit] = decoder_setting(self.config_main.decoder_dataset, self.config_main)
+        if self.config_main.vae_struct:
+            [self.Data, self.Setting, self.Params, self.SuperParams, self.epsit] = decoder_setting(self.config_main.decoder_dataset, self.config_main)
         for epoch in range(1, epochs + 1):
             # print('\n' + header)
             self.train_epoch(epoch)
