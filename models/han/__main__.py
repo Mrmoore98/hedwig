@@ -119,7 +119,7 @@ if __name__ == '__main__':
     config.label_smoothing = True
     config.std = 0.05
     config.smoothing = 0.05
-    config.ls_mode = 'normal_dis'
+    config.ls_mode = 'origin'
     # for vae
     config.vae_struct = False
     config.vae_word_dim = 30000
@@ -146,7 +146,7 @@ if __name__ == '__main__':
                                                               device=args.gpu,
                                                               unk_init=UnknownWordVecCache.unk,
                                                               sort_within_batch = config.sort_within_batch,
-                                                              max_size= config.max_size
+                                                              max_size= config.max_size,
                                                               bucket_size=config.bucket_size
                                                               )
 
@@ -182,10 +182,12 @@ if __name__ == '__main__':
     
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     optimizer = torch.optim.AdamW(parameter, lr=args.lr, betas=(0.9, 0.98), eps=1e-09, weight_decay=args.weight_decay, amsgrad=True)
+    config.schedular = None
+    config.schedular = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0= 4)
     config.ow_factor = 2
     config.ow_warmup = 20000
     config.ow_model_size = 300
-    if config.optimizer_warper:
+    if config.optimizer_warper and config.schedular is not None:
         optimizer = NoamOpt( config.ow_model_size, config.ow_factor, config.ow_warmup, optimizer)
    
     

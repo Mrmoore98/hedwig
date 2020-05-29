@@ -77,7 +77,6 @@ class ClassificationTrainer(Trainer):
             else:
                 self.optimizer.zero_grad() #origin
             
-            
             # if batch.text.shape[2]*batch.text.shape[1]> 100:
             #     import pdb; pdb.set_trace()
             #     match_data = match_str(batch.text,batch.dataset.fields['text'].vocab.itos)
@@ -156,6 +155,7 @@ class ClassificationTrainer(Trainer):
             train_acc = 100. * n_correct / n_total
             loss.backward()
             self.optimizer.step()
+            self.config_main.schedular.step(epoch + batch_idx/len(self.train_loader))
 
             if hasattr(self.model, 'beta_ema') and self.model.beta_ema > 0:
                 # Temporal averaging
