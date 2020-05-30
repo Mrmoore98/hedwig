@@ -103,7 +103,7 @@ if __name__ == '__main__':
     config.fix_length = None
     config.sort_within_batch = True
     config.max_size = 30000
-    config.bucket_size = 1000
+    config.bucket_size = 2000
 
     config.residual = False
     config.cnn = False

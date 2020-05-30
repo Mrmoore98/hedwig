@@ -155,7 +155,10 @@ class ClassificationTrainer(Trainer):
             train_acc = 100. * n_correct / n_total
             loss.backward()
             self.optimizer.step()
-            self.config_main.schedular.step(epoch + batch_idx/len(self.train_loader))
+            try:
+                self.config_main.schedular.step(epoch + batch_idx/len(self.train_loader))
+            except:
+                pass
 
             if hasattr(self.model, 'beta_ema') and self.model.beta_ema > 0:
                 # Temporal averaging
@@ -167,10 +170,10 @@ class ClassificationTrainer(Trainer):
                                                len(self.train_loader), 100.0 * (1 + batch_idx) / len(self.train_loader),
                                                loss.item(), train_acc))
                 self.train_result.append((train_acc,loss.item()))
-            if self.iterations % (300*3) == 1:
-                dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse = self.dev_evaluator.get_scores()[0]
-                print(self.dev_log_template.format(time.time() - self.start, 1, self.iterations, 1, 1,
-                                                            dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse))
+            # if self.iterations % (300*3) == 1:
+            #     dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse = self.dev_evaluator.get_scores()[0]
+            #     print(self.dev_log_template.format(time.time() - self.start, 1, self.iterations, 1, 1,
+            #                                                 dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse))
 
                                 
             self.learning_time += time.time()-learning_tmp
@@ -185,7 +188,7 @@ class ClassificationTrainer(Trainer):
         if self.config_main.vae_struct:
             [self.Data, self.Setting, self.Params, self.SuperParams, self.epsit] = decoder_setting(self.config_main.decoder_dataset, self.config_main)
         for epoch in range(1, epochs + 1):
-            # print('\n' + header)
+            print('\n' + header)
             self.train_epoch(epoch)
             print("Performing evluation!")
             # Evaluate performance on validation set
@@ -193,7 +196,7 @@ class ClassificationTrainer(Trainer):
             dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse = self.dev_evaluator.get_scores()[0]
             self.dev_time += time.time() - dev_time_tmp
             # Print validation results
-            # print('\n' + dev_header)
+            print('\n' + dev_header)
             print(self.dev_log_template.format(time.time() - self.start, epoch, self.iterations, epoch, epochs,
                                                dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse))
             print("tot:{:.0f}, batch{:.0f}, model:{:.0f}, learning:{:.0f}, dev:{:.0f}, initial:{:.0f}, initial_data{:.0f}".format(time.time() - self.start, self.batch_time, self.model_process_time, self.learning_time, self.dev_time, self.initialize_time, self.initial_data_time))

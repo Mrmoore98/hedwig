@@ -8,6 +8,7 @@ from torchtext.data.iterator import BucketIterator
 from torchtext.vocab import Vectors
 
 from datasets.reuters import clean_string, split_sents
+from models.oh_cnn_HAN.least_padding_iterator import Less_padding_bucket_Iterator
 
 
 def char_quantize(string, max_length=1000):
@@ -50,8 +51,8 @@ class Yelp2014(TabularDataset):
         )
 
     @classmethod
-    def iters(cls, path, vectors_name, vectors_cache, batch_size=64, shuffle=True, device=0, vectors=None,
-              unk_init=torch.Tensor.zero_):
+    def iters(cls, path, vectors_name=None, vectors_cache=None, batch_size=64, shuffle=True, device=0, vectors=None,
+              unk_init=torch.Tensor.zero_, onehot_Flag =False, max_size = None,  sort_within_batch=False, bucket_size=300):
         """
         :param path: directory containing train, test, dev files
         :param vectors_name: name of word vectors file
@@ -62,13 +63,13 @@ class Yelp2014(TabularDataset):
         :param unk_init: function used to generate vector for OOV words
         :return:
         """
-        if vectors is None:
+        if vectors is None and not onehot_Flag:
             vectors = Vectors(name=vectors_name, cache=vectors_cache, unk_init=unk_init)
-
+        if max_size is not None: max_size = max_size-2
         train, val, test = cls.splits(path)
-        cls.TEXT_FIELD.build_vocab(train, val, test, vectors=vectors)
-        return BucketIterator.splits((train, val, test), batch_size=batch_size, repeat=False, shuffle=shuffle,
-                                     sort_within_batch=True, device=device)
+        cls.TEXT_FIELD.build_vocab(train, val, test, vectors=vectors, max_size= max_size)
+        return Less_padding_bucket_Iterator.splits((train, val, test), batch_size=batch_size, repeat=False, shuffle=shuffle,
+                                     sort_within_batch=sort_within_batch, device=device, bucket_size=bucket_size)
 
 
 class Yelp2014CharQuantized(Yelp2014):
