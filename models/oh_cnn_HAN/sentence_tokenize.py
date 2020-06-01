@@ -16,6 +16,7 @@ class Sentence_Tokenize(object):
         self.st  = sent_tokenize
         self.method = 'origin'
         self.threshold = 15
+        self.min_sen_num = 3
 
 
     def split_sentence(self,string):
@@ -26,8 +27,9 @@ class Sentence_Tokenize(object):
             string = re.sub(r"[^A-Za-z0-9():;.,!?\'`]", " ", string)   
             string = re.sub(r"([.?!](\s*)){2,}",".", string) 
             sentence_list_tmp = re.split(r'[;.!?]',string.strip())
-            sentence_list.extend(list(filter(None, sentence_list_tmp)))
-
+            sentence_list_tmp = list(filter(lambda p: len(p)>self.min_sen_num, sentence_list_tmp))
+            sentence_list.extend(sentence_list_tmp)
+            
         return sentence_list 
 
     def __call__(self, string):
@@ -39,14 +41,9 @@ class Word_Tokenize(object):
     def __init__(self):
         pass
        
-
-
     def split_word(self,string):
-     
-        # import pdb; pdb.set_trace()
         string = re.sub(r"\s{2,}", " ", string)
         return string.lower().strip().split()
-
 
     def __call__(self, string):
         return self.split_word(string)
