@@ -36,15 +36,19 @@ class Yelp2014(TabularDataset):
 
     TEXT_FIELD = Field(batch_first=True, tokenize=clean_string, include_lengths=True)
     LABEL_FIELD = Field(sequential=False, use_vocab=False, batch_first=True, preprocessing=process_labels)
+    Year = 14
 
     @staticmethod
     def sort_key(ex):
         return len(ex.text)
 
     @classmethod
-    def splits(cls, path, train=os.path.join('Yelp2014', 'train.tsv'),
-               validation=os.path.join('Yelp2014', 'dev.tsv'),
-               test=os.path.join('Yelp2014', 'test.tsv'), **kwargs):
+    def splits(cls, path, **kwargs):
+        dataset_name = 'Yelp20{}'.format(cls.Year)
+        train=os.path.join(dataset_name, 'train.tsv')
+        validation=os.path.join(dataset_name, 'dev.tsv')
+        test=os.path.join(dataset_name, 'test.tsv')
+        
         return super(Yelp2014, cls).splits(
             path, train=train, validation=validation, test=test,
             format='tsv', fields=[('label', cls.LABEL_FIELD), ('text', cls.TEXT_FIELD)]

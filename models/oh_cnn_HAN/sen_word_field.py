@@ -181,8 +181,11 @@ class SentenceWord_field(Field):
                 sources.append(arg)
 
         flattened = []
+        
         for source in sources:
             flattened.extend(source)
+            
+
         old_vectors = None
         old_unk_init = None
         old_vectors_cache = None

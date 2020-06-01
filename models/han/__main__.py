@@ -102,7 +102,7 @@ if __name__ == '__main__':
     #dataset
     config.fix_length = None
     config.sort_within_batch = True
-    config.max_size = 30000
+    config.max_size = None
     config.bucket_size = 2000
 
     config.residual = False
@@ -129,10 +129,13 @@ if __name__ == '__main__':
     #front end cnn
     config.frontend_cnn = True
 
-
+    if args.dataset == 'Yelp2013':
+       args.dataset = 'Yelp2014'
+       dataset_map[args.dataset].Year = 13
     dataset_map[args.dataset].NESTING_FIELD = Field(batch_first=True, tokenize=Word_Tokenize(),  fix_length = config.fix_length )
-    dataset_map[args.dataset].TEXT_FIELD = SentenceWord_field(dataset_map[args.dataset].NESTING_FIELD, tokenize=Sentence_Tokenize(),\
-                                                              vae_struct=config.vae_struct)
+    dataset_map[args.dataset].TEXT_FIELD = SentenceWord_field(dataset_map[args.dataset].NESTING_FIELD,\
+                                                                tokenize=Sentence_Tokenize(),\
+                                                                vae_struct=config.vae_struct)
 
     time_tmp = time.time()
     if args.dataset not in dataset_map:
@@ -183,7 +186,7 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     optimizer = torch.optim.AdamW(parameter, lr=args.lr, betas=(0.9, 0.98), eps=1e-09, weight_decay=args.weight_decay, amsgrad=True)
     config.schedular = None
-    config.schedular = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0= 4)
+    config.schedular = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0= 7)
     config.ow_factor = 2
     config.ow_warmup = 20000
     config.ow_model_size = 300
