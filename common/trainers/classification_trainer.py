@@ -11,11 +11,11 @@ from models.oh_cnn_HAN.check_text import match_str
 from models.oh_cnn_HAN.loss import Loss
 from models.oh_cnn_HAN.label_smooth import LabelSmoothing
 
-#decoder
-from BCPGDS_decoder.Read_IMDB import Load_Data
-from BCPGDS_decoder.Config_for_decoder import decoder_setting
-from BCPGDS_decoder.Update_decoder import updatePhi_Pi
-from BCPGDS_decoder.Config import *
+# #decoder
+# from BCPGDS_decoder.Read_IMDB import Load_Data
+# from BCPGDS_decoder.Config_for_decoder import decoder_setting
+# from BCPGDS_decoder.Update_decoder import updatePhi_Pi
+# from BCPGDS_decoder.Config import Setting, SuperParams, Params, Data
 
 class ClassificationTrainer(Trainer):
 
@@ -186,6 +186,11 @@ class ClassificationTrainer(Trainer):
         os.makedirs(self.model_outfile, exist_ok=True)
         os.makedirs(os.path.join(self.model_outfile, self.train_loader.dataset.NAME), exist_ok=True)
         if self.config_main.vae_struct:
+            #decoder
+            from BCPGDS_decoder.Read_IMDB import Load_Data
+            from BCPGDS_decoder.Config_for_decoder import decoder_setting
+            from BCPGDS_decoder.Update_decoder import updatePhi_Pi
+            from BCPGDS_decoder.Config import Setting, SuperParams, Params, Data
             [self.Data, self.Setting, self.Params, self.SuperParams, self.epsit] = decoder_setting(self.config_main.decoder_dataset, self.config_main)
         for epoch in range(1, epochs + 1):
             print('\n' + header)

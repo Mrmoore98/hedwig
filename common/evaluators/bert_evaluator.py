@@ -1,5 +1,5 @@
 import warnings
-
+import time
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -28,6 +28,7 @@ class BertEvaluator(object):
             self.eval_examples = self.processor.get_dev_examples(args.data_dir)
 
     def get_scores(self, silent=False):
+        
         if self.args.is_hierarchical:
             eval_features = convert_examples_to_hierarchical_features(
                 self.eval_examples, self.args.max_seq_length, self.tokenizer)
@@ -58,7 +59,7 @@ class BertEvaluator(object):
         total_loss = 0
         nb_eval_steps, nb_eval_examples = 0, 0
         predicted_labels, target_labels = list(), list()
-
+        start_time = time.time()
         for input_ids, input_mask, segment_ids, label_ids in tqdm(eval_dataloader, desc="Evaluating", disable=silent):
             input_ids = input_ids.to(self.args.device)
             input_mask = input_mask.to(self.args.device)
@@ -97,5 +98,5 @@ class BertEvaluator(object):
         mse = metrics.mean_squared_error(target_labels, predicted_labels)
 
         avg_loss = total_loss / nb_eval_steps
-
+        print("Evaluation Time: {}".format(time.time()-start_time))
         return [accuracy_real, precision, recall, f1, avg_loss, mse], ['accuracy', 'precision', 'recall', 'f1', 'avg_loss', 'mse']

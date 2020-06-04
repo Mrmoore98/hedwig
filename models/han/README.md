@@ -21,6 +21,9 @@ To test the model, you can use the following command.
 
 ```
 python -m models.han --dataset Reuters --mode static --batch-size 32 --trained-model models/han/saves/Reuters/best_model.pt --seed 3435
+CUDA_VISIBLE_DEVICES=2 python -m models.han --dataset ELEC --trained-model /home/s/CNN-BiLSTM2/hedwig/model_checkpoints/han/ELEC/2020-05-30_12-00-33.pt --batch-size 20 --seed 2345
+
+CUDA_VISIBLE_DEVICES=2 python -m models.han --dataset IMDB_2 --trained-model /home/s/CNN-BiLSTM2/hedwig/model_checkpoints/han/IMDB_2/55.2.pt --batch-size 20 --seed 2345
 ```
 
 ## Model Types

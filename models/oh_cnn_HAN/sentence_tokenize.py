@@ -27,7 +27,8 @@ class Sentence_Tokenize(object):
             string = re.sub(r"[^A-Za-z0-9():;.,!?\'`]", " ", string)   
             string = re.sub(r"([.?!](\s*)){2,}",".", string) 
             sentence_list_tmp = re.split(r'[;.!?]',string.strip())
-            sentence_list_tmp = list(filter(lambda p: len(p)>self.min_sen_num, sentence_list_tmp))
+            # sentence_list_tmp = list(filter(lambda p: len(p)>self.min_sen_num, sentence_list_tmp))
+            sentence_list_tmp = list(filter(None, sentence_list_tmp))
             sentence_list.extend(sentence_list_tmp)
             
         return sentence_list 

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from sklearn import metrics
-
+import time
 from common.evaluators.evaluator import Evaluator
 
 
@@ -15,6 +15,7 @@ class ClassificationEvaluator(Evaluator):
         self.is_binary      = False
 
     def get_scores(self):
+        
         self.model.eval()
         self.data_loader.init_epoch()
         total_loss = 0
@@ -25,6 +26,7 @@ class ClassificationEvaluator(Evaluator):
             self.model.load_ema_params()
 
         predicted_labels, target_labels = list(), list()
+        start_time = time.time()
         for batch_idx, batch in enumerate(self.data_loader):
             if hasattr(self.model, 'tar') and self.model.tar:
                 if self.ignore_lengths:
@@ -58,7 +60,7 @@ class ClassificationEvaluator(Evaluator):
             if hasattr(self.model, 'tar') and self.model.tar:
                 # Temporal activation regularization
                 total_loss += (rnn_outs[1:] - rnn_outs[:-1]).pow(2).mean()
-
+        print("Evaluation time:{}".format(time.time()- start_time))
         predicted_labels = np.array(predicted_labels)
         target_labels = np.array(target_labels)
         accuracy = metrics.accuracy_score(target_labels, predicted_labels)
@@ -71,5 +73,5 @@ class ClassificationEvaluator(Evaluator):
         if hasattr(self.model, 'beta_ema') and self.model.beta_ema > 0:
             # Temporal averaging
             self.model.load_params(old_params)
-
+        
         return [accuracy, precision, recall, f1, avg_loss, mse], ['accuracy', 'precision', 'recall', 'f1', 'cross_entropy_loss','MSE']
