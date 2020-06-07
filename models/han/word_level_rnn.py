@@ -42,21 +42,19 @@ class WordLevelRNN(nn.Module):
         x = x*math.sqrt(self.words_dim)
         x = self.em_dropout(x)
         #x:[word numbers, batch size, word dim]
-
-        if self.frontend_cnn:
-            x = x.permute(0,2,1)
-            x = self.front_cnn(x)
-            x = self.relu(x)
-            x = x.permute(0,1,2)
         if self.CNN:
             x = x.permute(0,2,1)
             h = self.TCN(x)
             #h :[bs, word dim, length]   
             h = h.permute(0,1,2)
         else:
+            if self.frontend_cnn:
+                x = x.permute(0,2,1)
+                x = self.front_cnn(x)
+                x = self.relu(x)
+                x = x.permute(0,1,2)
             x = self.em_layer_norm(x)
             h, _ = self.GRU(x)
-
         word_vec = h.unsqueeze(0) if self.vae_struct else None
         #h: [bs, length, word dim]
         x = self.han_attention(h)

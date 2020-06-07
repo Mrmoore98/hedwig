@@ -123,8 +123,9 @@ if __name__ == '__main__':
     config.vae_struct = False
     config.vae_word_dim = 30000
     config.decoder_dataset ='IMDB_10'
-    config.decoder_channel =200
-
+    config.decoder_channel =config.word_num_hidden*2
+    if config.vae_struct:
+        assert config.word_num_hidden == config.sent
     #front-end cnn
     config.frontend_cnn = False
 

@@ -11,12 +11,6 @@ from models.oh_cnn_HAN.check_text import match_str
 from models.oh_cnn_HAN.loss import Loss
 from models.oh_cnn_HAN.label_smooth import LabelSmoothing
 
-# #decoder
-# from BCPGDS_decoder.Read_IMDB import Load_Data
-# from BCPGDS_decoder.Config_for_decoder import decoder_setting
-# from BCPGDS_decoder.Update_decoder import updatePhi_Pi
-# from BCPGDS_decoder.Config import Setting, SuperParams, Params, Data
-
 class ClassificationTrainer(Trainer):
 
     def __init__(self, model, embedding, train_loader, trainer_config, config_main, train_evaluator, test_evaluator, dev_evaluator):
@@ -98,14 +92,13 @@ class ClassificationTrainer(Trainer):
                 else:
                     scores = self.model(batch.text[0], lengths=batch.text[1])
             if self.config_main.vae_struct and self.iterations % 50 == 1:
-                [self.Params.D1_k1, self.Params.Pi_left, self.Params.Pi_right] = updatePhi_Pi(epoch, batch.text[1], self.Params, self.Data, self.SuperParams, batch_idx, self.Setting, feature_map[:,:,:,:self.config_main.word_num_hidden], 
-                            feature_map[:,:,:,self.config_main.word_num_hidden:], self.epsit)
-
+                output = updatePhi_Pi(epoch, batch.text[1], self.Params, self.Data, self.SuperParams, batch_idx,
+                                      self.Setting, feature_map[:,:,:,:self.config_main.word_num_hidden],
+                                      feature_map[:,:,:,self.config_main.word_num_hidden:], self.epsit)
+                [self.Params.D1_k1, self.Params.Pi_left, self.Params.Pi_right] = output
 
             self.model_process_time += time.time()-model_process_time_tmp
             learning_tmp = time.time()
-            # except RuntimeError:
-            #     import pdb; pdb.set_trace()
 
             if 'is_multilabel' in self.config and self.config['is_multilabel']:
                 predictions = F.sigmoid(scores).round().long()
@@ -116,15 +109,18 @@ class ClassificationTrainer(Trainer):
             else:
                     
                 if self.config['loss'] is not None:
+                    if len(scores.shape)<2:
+                        scores = scores.unsqueeze(0)
+                    predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
+                    ground_truth = torch.argmax(label, dim=-1).cpu().numpy()
+                    n_correct   += np.sum(predictions == ground_truth)
                     if self.config_main.vae_struct:
-                        if len(scores.shape)<2:
-                            scores = scores.unsqueeze(0)
-                        predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
-                        ground_truth = torch.argmax(label, dim=-1).cpu().numpy()
-                        n_correct   += np.sum(predictions == ground_truth)
-                        loss, n_correct = Loss(self.config['loss'])(scores, batch.label.data, feature_map, batch.text)
+                        loss = self.model.ELBO(scores, batch.label.data, 
+                                                W = feature_map, 
+                                                origin_data = batch.text, 
+                                                cnn_weight = self.Params.D1_k1)
                     else:
-                        loss, n_correct = Loss(self.config['loss'])(scores, batch.label.data)
+                        loss = Loss(self.config['loss'])(scores, batch.label.data)
 
                 elif self.config['Binary']:
                     predictions  = F.sigmoid(scores).round().long().cpu().numpy()
@@ -175,7 +171,6 @@ class ClassificationTrainer(Trainer):
             #     print(self.dev_log_template.format(time.time() - self.start, 1, self.iterations, 1, 1,
             #                                                 dev_acc, dev_precision, dev_recall, dev_f1, dev_loss, mse))
 
-                                
             self.learning_time += time.time()-learning_tmp
             tmp_batch = time.time()
 

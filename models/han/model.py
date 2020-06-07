@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from models.han.sent_level_rnn import SentLevelRNN
 from models.han.word_level_rnn import WordLevelRNN
-
+from models.oh_cnn_HAN.loss import VAELoss
 
 class HAN(nn.Module):
 
@@ -27,6 +27,8 @@ class HAN(nn.Module):
         self.word_attention_rnn = WordLevelRNN(config)
         self.sentence_attention_rnn = SentLevelRNN(config)
         self.vae_struct = config.vae_struct
+        if self.vae_struct:
+            self.ELBO = VAELoss(config)
 
     def forward(self, x,  **kwargs):
 
@@ -50,7 +52,7 @@ class HAN(nn.Module):
             output = self.sentence_attention_rnn(word_attentions, word_vecs)
         else:
             output = self.sentence_attention_rnn(word_attentions)
-
+            
         return output
 
 if __name__ == "__main__":

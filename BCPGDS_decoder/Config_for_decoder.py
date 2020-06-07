@@ -59,7 +59,8 @@ def decoder_setting(input_data, config):
     epsit = np.power((Setting.tao0 + np.linspace(1, Setting.iterall, Setting.iterall)), -Setting.kappa0)
     epsit = Setting.epsi0 * epsit / epsit[0]
 
-    Setting.K1_V1 = len(Data.word2index)
+    # Setting.K1_V1 = len(Data.word2index)
+    Setting.K1_V1 = config.words_num
     Setting.K1_S3 = Setting.K1_V1
     Setting.K1_S4 = 3
     Setting.K1_S1 = Setting.K1_V1 - Setting.K1_S3 + 1

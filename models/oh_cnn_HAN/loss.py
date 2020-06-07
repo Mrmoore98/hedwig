@@ -25,10 +25,7 @@ class Loss(nn.Module):
 
         if len(scores.shape)<2:
             scores = scores.unsqueeze(0)
-        n_correct = 0
-        predictions  = torch.argmax(scores, dim=-1).long().cpu().numpy()
-        ground_truth = torch.argmax(label, dim=-1).cpu().numpy()
-        n_correct   += np.sum(predictions == ground_truth)
+
         loss = F.cross_entropy(scores, torch.argmax(label, dim=-1))
 
         return loss
@@ -62,25 +59,27 @@ class VAELoss(nn.Module):
 
     def __init__(self, config):
         super(VAELoss, self).__init__()  
+        
+        self.real_min = 2.2e-16
+        self.eulergamma = 0.5772
+        self.eps = None
         if False:
-            self.real_min = 2.2e-16
-            self.eulergamma = 0.5772
-            self.eps = None
             data_path = '/home/s/CNN-BiLSTM2/hedwig-data/Conv_PGDS_Batch_5_11.pkl'
             with open(data_path, 'rb') as file:
                 deconv_kernel = pickle.load(file)
             deconv_kernel['D'] = np.concatenate((deconv_kernel['D'],np.random.rand(1000,1,3)),axis=1)   
             deconv_kernel = torch.from_numpy(deconv_kernel['D']).reshape(1000, 30000, 3, 1).permute(1,0,2,3)
             self.deconv_kernel = nn.Parameter(deconv_kernel, requires_grad = False)
-            self.zero_vec = nn.Parameter(torch.zeros(1, config.vae_word_dim), requires_grad = False)
-            self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, 2*1000, 1, groups=2)
-            self.word_num_hidden = config.word_num_hidden
-            self.bias = nn.Parameter(torch.empty(config.vae_word_dim, dtype= torch.float64).uniform_(-0.1, 0.1))
-            self.fill_value = 1
-            self.label_smoothing = LabelSmoothing(config)
-            self.label_smooth = config.label_smoothing
-    
-    def ELBO(self, scores, label, W, origin_data):
+        self.zero_vec = nn.Parameter(torch.zeros(1, config.vae_word_dim), requires_grad = False)
+        self.shape_scale_cnn = nn.Conv2d(config.word_num_hidden*2, config.word_num_hidden*2, 1, groups=2)
+        self.word_num_hidden = config.word_num_hidden
+        self.fill_value = 1
+        self.label_smoothing = LabelSmoothing(config)
+        self.label_smooth = config.label_smoothing
+    def forward(self,scores, label, W, origin_data, cnn_weight, Gam_shape=None, Gam_scale=None):
+        return self.ELBO(scores, label, W, origin_data, cnn_weight, Gam_shape, Gam_scale)
+
+    def ELBO(self, scores, label, W, origin_data, cnn_weight, Gam_shape=None, Gam_scale=None):
         
         W = self.shape_scale_cnn(W)
         Wei_shape, Wei_scale = W[:,:W.shape[1]//2,:,:], W[:,W.shape[1]//2:,:,:]
@@ -92,7 +91,7 @@ class VAELoss(nn.Module):
             CE_loss = self.cross_entropy(scores, label)
         KL_loss = self.KL_GamWei(Gam_shape, Gam_scale, Wei_shape, Wei_scale)
         theta = self.reparameterization(Wei_shape, Wei_scale)
-        Likelihood = self.Likeihood(theta, origin_data)
+        Likelihood = self.Likeihood(theta, origin_data, cnn_weight)
         Loss = CE_loss - Likelihood + KL_loss
         return Loss
 
@@ -104,16 +103,21 @@ class VAELoss(nn.Module):
         theta = Wei_scale * torch.pow(-self.log_max(1 - self.eps), 1 / Wei_shape)
         return theta
 
-    def KL_GamWei(self, Gam_shape, Gam_scale, Wei_shape, Wei_scale):  # K_dim[i] * none
+    def KL_GamWei(self, Gam_shape, Gam_scale, Wei_shape, Wei_scale):
+        # K_dim[i] * none
         KL_Part1 = self.eulergamma * (1 - 1 / Wei_shape) + self.log_max(Wei_scale / Wei_shape) + 1 + Gam_shape * self.log_max(Gam_scale)
         KL_Part2 = -1*torch.lgamma(Gam_shape) + (Gam_shape - 1) * (self.log_max(Wei_scale) - self.eulergamma / Wei_shape)
         KL = KL_Part1 + KL_Part2 - Gam_scale * Wei_scale * torch.exp(torch.lgamma(1 + 1 / Wei_shape))
         return torch.sum(KL)
 
-    def Likeihood(self, theta, origin_data, Param=None):
+    def Likeihood(self, theta, origin_data, weight):
+        '''
+        origin_data: data(index)
+        weight: oh_dim(30k), word_vector(200), kernel size(3)    
+        '''
         likelihood = 0
-        Orgin_X, weight, bias = self.to_oh(origin_data)
-        PhiTheta_1 = self.same_pad_conv2d(theta, weight, bias)
+        Orgin_X = self.to_oh(origin_data, weight)
+        PhiTheta_1 = self.same_pad_conv2d(theta, weight)
         E_q = Orgin_X * self.log_max(PhiTheta_1) - PhiTheta_1 - torch.lgamma(Orgin_X + 1)
         likelihood = torch.sum(E_q)
         
@@ -128,25 +132,24 @@ class VAELoss(nn.Module):
         output = F.conv_transpose2d(input, weight, output_padding = output_pad)
         return output
 
-    def to_oh(self, input):
+    def to_oh(self, input, weight):
         '''Adaptively adjust weight to accommodate input'''        
         # allocate weight 
         index_weight  = torch.unique(input)
-        weight=self.deconv_kernel[index_weight,:,:,:]
-        bias  =self.bias[index_weight] 
+        weight=weight[index_weight,:,:]
         index_one_hot = input.unsqueeze(1)
         output        = self.zero_vec.repeat(*input.shape, 1).permute(0,3,1,2)
         output.scatter_(1, index_one_hot, self.fill_value)
         compressed_output = output[:, index_weight, :, :]
 
-        return compressed_output, weight, bias
+        return compressed_output, weight
     
     def cross_entropy(self, scores, label):
         loss = F.cross_entropy(scores, torch.argmax(label, dim=-1))
 
         return loss
     
-    def same_pad_conv2d(self, input, kernel, bias, stride=1,  dilation=1, groups=1):
+    def same_pad_conv2d(self, input, kernel, bias=None, stride=1,  dilation=1, groups=1):
         '''preserved height&width'''
         input_size_H = input.shape[2]
         input_size_W = input.shape[3]
@@ -181,11 +184,11 @@ if __name__ == "__main__":
     config.sentence_num_hidden = 100
     config.target_class = 10
     config.vae_struct = True
-    config.residual = False
     config.dropout_rate =0.5
     config.vae_word_dim = 30000
-    
-    aa = Loss(config)
+    config.decoder_channel = 200
+
+    aa = VAELoss(config).cuda()
     sentence_len = 20
     sentence_num = 10
     batch_size = 2
@@ -193,6 +196,6 @@ if __name__ == "__main__":
     target = torch.randn(batch_size, sentence_num)
     origin_data_index = torch.randint(0,30000,(batch_size, sentence_num, sentence_len))
     word_vec = torch.randn(batch_size, sentence_num, sentence_len, 2*config.word_num_hidden, requires_grad=True).permute(0,3,1,2)
-    output = aa.apply('ELBO')(input, target, word_vec, origin_data_index)
+    output = aa(input, target, word_vec, origin_data_index, cnn_weight)
     output.backward()
     import pdb; pdb.set_trace()
