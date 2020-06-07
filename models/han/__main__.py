@@ -100,7 +100,7 @@ if __name__ == '__main__':
     }
     config = deepcopy(args)
     #dataset
-    config.fix_length = None
+    config.fix_length = 64
     config.sort_within_batch = True
     config.max_size = 30000
     config.bucket_size = 1000
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     config.decoder_channel =200
 
     #front-end cnn
-    config.frontend_cnn = True
+    config.frontend_cnn = False
 
     if args.dataset == 'Yelp2013':
        args.dataset = 'Yelp2014'
@@ -239,7 +239,7 @@ if __name__ == '__main__':
 
     
     # Calculate dev and test metrics
-    if hasattr(trainer, 'snapshot_path') and not args.trained_model:
+    if not args.trained_model and hasattr(trainer, 'snapshot_path'):
         model = torch.load(trainer.snapshot_path)
 
     evaluate_dataset('dev', dataset_map[args.dataset], model, None, dev_iter, args.batch_size,

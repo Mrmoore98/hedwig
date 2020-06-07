@@ -40,6 +40,7 @@ We experiment the model on the following datasets.
 - AAPD
 - IMDB
 - Yelp 2014
+- ELEC
 
 ## Settings
 

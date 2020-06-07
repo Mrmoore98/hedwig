@@ -10,7 +10,7 @@ class WordLevelRNN(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.word_num_hidden = config.self.word_num_hidden
+        self.word_num_hidden = config.word_num_hidden
         self.words_dim = config.words_dim
         self.vae_struct = config.vae_struct
         self.frontend_cnn = config.frontend_cnn
@@ -37,7 +37,6 @@ class WordLevelRNN(nn.Module):
         self.em_dropout = nn.Dropout(config.dropout_rate)
         self.relu = nn.ReLU()
 
-
     def forward(self, x):
 
         x = x*math.sqrt(self.words_dim)
@@ -45,18 +44,25 @@ class WordLevelRNN(nn.Module):
         #x:[word numbers, batch size, word dim]
 
         if self.frontend_cnn:
+            x = x.permute(0,2,1)
             x = self.front_cnn(x)
             x = self.relu(x)
-            
+            x = x.permute(0,1,2)
         if self.CNN:
+            x = x.permute(0,2,1)
             h = self.TCN(x)
-            #h :[bs, word dim, length]     
+            #h :[bs, word dim, length]   
+            h = h.permute(0,1,2)
         else:
             x = self.em_layer_norm(x)
             h, _ = self.GRU(x)
 
         word_vec = h.unsqueeze(0) if self.vae_struct else None
         #h: [bs, length, word dim]
+        x = self.han_attention(h)
+        return x, word_vec
+
+    def han_attention(self, h):
         x = h
         x = torch.tanh(self.linear(x))
         x = torch.matmul(x, self.word_context_weights)
@@ -67,7 +73,7 @@ class WordLevelRNN(nn.Module):
         x = torch.sum(x, dim=-1)
         # x: [word dim, bs]
         x = x.transpose(1, 0).unsqueeze(0)
-        return x, word_vec
+        return x
 
 def conv1d_same_padding(inputs, out_channels, kernel_size, bias=None, stride=1, dilation=1, groups=1):
 
