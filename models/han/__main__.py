@@ -109,6 +109,7 @@ if __name__ == '__main__':
     config.min_seq_len = 64 # It's a power series of two
     config.dropout_rate = 0.5
     config.optimizer_warper = True
+    config.warnup = 7
     config.word_num_hidden = 100
     config.sentence_num_hidden = 100
     config.weight_decay = 1e-5
@@ -184,7 +185,7 @@ if __name__ == '__main__':
     # optimizer = torch.optim.Adam(parameter, lr=args.lr, weight_decay=args.weight_decay,  betas=(0.9, 0.98), eps=1e-9)
     optimizer = torch.optim.AdamW(parameter, lr=args.lr, betas=(0.9, 0.98), eps=1e-09, weight_decay=args.weight_decay, amsgrad=True)
     config.schedular = None
-    config.schedular = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0= 7)
+    config.schedular = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0= config.warnup)
     config.ow_factor = 2
     config.ow_warmup = 20000
     config.ow_model_size = 300

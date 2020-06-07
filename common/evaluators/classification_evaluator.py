@@ -60,7 +60,7 @@ class ClassificationEvaluator(Evaluator):
             if hasattr(self.model, 'tar') and self.model.tar:
                 # Temporal activation regularization
                 total_loss += (rnn_outs[1:] - rnn_outs[:-1]).pow(2).mean()
-        print("Evaluation time:{}".format(time.time()- start_time))
+        print("Evaluation time:{:.2f}".format(time.time()- start_time))
         predicted_labels = np.array(predicted_labels)
         target_labels = np.array(target_labels)
         accuracy = metrics.accuracy_score(target_labels, predicted_labels)
