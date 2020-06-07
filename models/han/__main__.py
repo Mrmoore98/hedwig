@@ -102,18 +102,16 @@ if __name__ == '__main__':
     #dataset
     config.fix_length = None
     config.sort_within_batch = True
-    config.max_size = None
-    config.bucket_size = 2000
-
-    config.residual = False
+    config.max_size = 30000
+    config.bucket_size = 1000
+    #model hyperparameters
     config.cnn = False
+    config.min_seq_len = 64 # It's a power series of two
     config.dropout_rate = 0.5
     config.optimizer_warper = True
-    config.kernel_set = [1,2,3,4]
     config.word_num_hidden = 100
     config.sentence_num_hidden = 100
     config.weight_decay = 1e-5
-    
     config.loss = None
     #label smoothing    
     config.label_smoothing = True
@@ -126,7 +124,7 @@ if __name__ == '__main__':
     config.decoder_dataset ='IMDB_10'
     config.decoder_channel =200
 
-    #front end cnn
+    #front-end cnn
     config.frontend_cnn = True
 
     if args.dataset == 'Yelp2013':

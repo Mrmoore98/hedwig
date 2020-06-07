@@ -7,42 +7,31 @@ class SentLevelRNN(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.residual=config.residual
-        if config.residual:
-            self.sentence_num_hidden = config.word_num_hidden
-        else:
-            self.sentence_num_hidden = config.sentence_num_hidden
+        self.sentence_num_hidden = config.sentence_num_hidden
         self.word_num_hidden = config.word_num_hidden
         target_class = config.target_class
-
 
         self.sentence_context_weights = nn.Parameter(torch.rand(2 * self.sentence_num_hidden, 1))
         self.sentence_context_weights.data.uniform_(-0.1, 0.1)
         # self.sentence_rnn = nn.GRU(2 * word_num_hidden, sentence_num_hidden, bidirectional=True)
         self.sentence_rnn = nn.LSTM(2 * self.word_num_hidden, self.sentence_num_hidden, bidirectional=True)
         self.sentence_linear = nn.Linear(2 * self.sentence_num_hidden, 2 * self.sentence_num_hidden, bias=True)
-        self.fc = nn.Linear(2 * self.sentence_num_hidden , target_class)
-        self.fc_cat = nn.Linear(2*2 * self.sentence_num_hidden , target_class)
-
-        self.soft_sent = nn.Softmax()
+        # Regularization
+        self.soft_sent = nn.Softmax(dim=-1)
         self.scale_factor = math.sqrt(2 * self.sentence_num_hidden)
-        
         self.sen_vec_norm = nn.LayerNorm(self.word_num_hidden*2)
-        self.mlp_layernorm = nn.LayerNorm(self.sentence_num_hidden*2) 
-        if config.residual:
-            self.SenGruRes = Residual_Block(config, self.sentence_num_hidden*2)
-            self.SenAttRes = Residual_Block(config, self.sentence_num_hidden*2)
-        self.SenFfRes = Residual_Block(config, self.sentence_num_hidden*2)
-        self.SenFfCat = Concate_Block(config, self.sentence_num_hidden*2)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(config.dropout_rate)
 
+        self.SenFfCat = Concate_Block(config, self.sentence_num_hidden*2)
         self.ff = PositionwiseFeedForward(self.sentence_num_hidden*2, self.sentence_num_hidden*2*4, config.dropout_rate)
+        self.fc_cat = nn.Linear(2 * 2 * self.sentence_num_hidden , target_class)
 
         self.vae_struct = config.vae_struct
         if self.vae_struct:
             assert self.sentence_num_hidden == self.word_num_hidden
         
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(config.dropout_rate)
+
     def forward(self, sen_vec, word_vector=None):
 
         #sen_vec: [seq_len, bs, word_num_hidden*2]
