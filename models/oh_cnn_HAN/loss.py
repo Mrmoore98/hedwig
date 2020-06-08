@@ -77,7 +77,15 @@ class VAELoss(nn.Module):
         self.label_smoothing = LabelSmoothing(config)
         self.label_smooth = config.label_smoothing
     def forward(self,scores, label, W, origin_data, cnn_weight, Gam_shape=None, Gam_scale=None):
-        return self.ELBO(scores, label, W, origin_data, cnn_weight, Gam_shape, Gam_scale)
+        '''
+            scores(torch tensor [bs, target class number]): output of model without softmax
+            label(torch tensor [bs]): the ground turth of the output
+            W( torch tensor [seq_len, each sen len, bs, word_num_hidden*2]): the feature map for inference
+            origin_data (torch tensor [bs, sent num, sent len]): data with index
+            cnn_weight ( numpy array [V, 3, word_num_hidden*2]): the decoder parameter, for inference an output to compare with origin_data  
+        '''
+        cnn_weight = torch.from_numpy(cnn_weight).permute(0,2,1)
+        return self.ELBO(scores, label, W.permute(2,3,0,1), origin_data, cnn_weight, Gam_shape, Gam_scale)
 
     def ELBO(self, scores, label, W, origin_data, cnn_weight, Gam_shape=None, Gam_scale=None):
         
@@ -122,15 +130,6 @@ class VAELoss(nn.Module):
         likelihood = torch.sum(E_q)
         
         return likelihood
-
-    def deconv2d(self, input, weight, expected_W, expected_H, stride=(1,1), dilation=(1,1), padding=(0,0)):
-        
-        output_pad = [None, None]
-        output_pad[0] = (input.size(2)-1)*stride[0] - expected_W - 2*padding[0] + dilation[0]*(weight.size(0)-1) + 1
-        output_pad[1] = ((input.size(3)-1)*stride[1] - expected_H + dilation[1]*(weight.size(1)-1) + 1)/2
-        
-        output = F.conv_transpose2d(input, weight, output_padding = output_pad)
-        return output
 
     def to_oh(self, input, weight):
         '''Adaptively adjust weight to accommodate input'''        
