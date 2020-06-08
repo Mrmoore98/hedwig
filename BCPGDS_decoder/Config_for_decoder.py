@@ -40,6 +40,7 @@ def decoder_setting(input_data, config):
     Setting.tao0 = 20
     Setting.epsi0 = 1
 
+    Setting.SweepTime =1
     Setting.batch_size = config.batch_size
     Setting.Iter = 20
     Setting.Burnin = 0.6 * Setting.Iter

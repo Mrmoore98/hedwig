@@ -84,7 +84,7 @@ class VAELoss(nn.Module):
             origin_data (torch tensor [bs, sent num, sent len]): data with index
             cnn_weight ( numpy array [V, 3, word_num_hidden*2]): the decoder parameter, for inference an output to compare with origin_data  
         '''
-        cnn_weight = torch.from_numpy(cnn_weight).permute(0,2,1)
+        cnn_weight = torch.from_numpy(cnn_weight).permute(0,2,1).unsqueeze(-2)
         return self.ELBO(scores, label, W.permute(2,3,0,1), origin_data, cnn_weight, Gam_shape, Gam_scale)
 
     def ELBO(self, scores, label, W, origin_data, cnn_weight, Gam_shape=None, Gam_scale=None):
@@ -121,7 +121,7 @@ class VAELoss(nn.Module):
     def Likeihood(self, theta, origin_data, weight):
         '''
         origin_data: data(index)
-        weight: oh_dim(30k), word_vector(200), kernel size(3)    
+        weight: oh_dim(30k), word_vector(200), 1, kernel size(3)   
         '''
         likelihood = 0
         Orgin_X = self.to_oh(origin_data, weight)
@@ -135,7 +135,7 @@ class VAELoss(nn.Module):
         '''Adaptively adjust weight to accommodate input'''        
         # allocate weight 
         index_weight  = torch.unique(input)
-        weight=weight[index_weight,:,:]
+        weight=weight[index_weight,:,:,:]
         index_one_hot = input.unsqueeze(1)
         output        = self.zero_vec.repeat(*input.shape, 1).permute(0,3,1,2)
         output.scatter_(1, index_one_hot, self.fill_value)
@@ -195,6 +195,7 @@ if __name__ == "__main__":
     target = torch.randn(batch_size, sentence_num)
     origin_data_index = torch.randint(0,30000,(batch_size, sentence_num, sentence_len))
     word_vec = torch.randn(batch_size, sentence_num, sentence_len, 2*config.word_num_hidden, requires_grad=True).permute(0,3,1,2)
+    cnn_weight = torch.randn(30000, 200, 3)
     output = aa(input, target, word_vec, origin_data_index, cnn_weight)
     output.backward()
     import pdb; pdb.set_trace()

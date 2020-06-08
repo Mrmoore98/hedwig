@@ -67,6 +67,12 @@ def evaluate_dataset(split_name, dataset_cls, model, embedding, loader, batch_si
     print(metric_names)
     print(scores)
 
+class IMDB_data_struct(object):
+    def __init__(self, itos, stoi, label, data):
+        self.itos = itos
+        self.stoi = stoi
+        self.label = label
+        self.data = data
 
 
 if __name__ == '__main__':
@@ -120,12 +126,12 @@ if __name__ == '__main__':
     config.smoothing = 0.05
     config.ls_mode = 'origin'
     # for vae
-    config.vae_struct = False
+    config.vae_struct = True
     config.vae_word_dim = 30000
     config.decoder_dataset ='IMDB_10'
     config.decoder_channel =config.word_num_hidden*2
     if config.vae_struct:
-        assert config.word_num_hidden == config.sent
+        assert config.word_num_hidden == config.sentence_num_hidden
     #front-end cnn
     config.frontend_cnn = False
 

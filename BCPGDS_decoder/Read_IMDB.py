@@ -71,14 +71,10 @@ def Word_Max_len(words):
     return max_len
 
 
-class IMDB_data_struct(object):
-    def __init__(self, itos, stoi, label, data):
-        self.itos = itos
-        self.stoi = stoi
-        self.label = label
-        self.data = data
 
 def Load_Data(data_name):
+
+
 
 
 
@@ -87,7 +83,7 @@ def Load_Data(data_name):
     if data_name == 'ELEC':
         data = cPickle.load(open('./ELEC_30k_cwc.pkl', 'rb'),encoding='iso-8859-1')
     if data_name == 'IMDB_10':
-        new_data = cPickle.load(open('./imdb_data.pkl', 'rb'))
+        new_data = cPickle.load(open('/home/s/CNN-BiLSTM2/hedwig/BCPGDS_decoder/imdb_data.pkl', 'rb'))
     if data_name == 'Reuters':
         new_data = cPickle.load(open('./Reuters_data.pkl', 'rb'))
         new_data_bow = cPickle.load(open('./Reuters_data_bow.pkl', 'rb'))
@@ -96,7 +92,7 @@ def Load_Data(data_name):
     if data_name == 'IMDB_10' or data_name == 'Reuters':
         #doc_labels = data['labels']
         #word_freq = data['word_freq']
-        word2index1 = new_data.stoi
+        word2index = new_data.stoi
         #word2index = {key: idx for key, idx in word2index1.items() if idx < 3000}
         index2word =  new_data.itos
         #train_doc_word = data['train_doc_word']

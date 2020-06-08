@@ -40,7 +40,8 @@ class SentLevelRNN(nn.Module):
         sentence_h, _ = self.sentence_rnn(sen_vec)
         if self.vae_struct:
            assert self.word_num_hidden == self.sentence_num_hidden
-           sentence_h = word_vector + sentence_h.unsqueeze(1)
+           #[sen_num, bs, length, word dim*2]
+           sentence_h = word_vector.permute(0,2,1,3) + sentence_h.unsqueeze(1)
            #sentence_h[seq_len, each sen len, bs, word_num_hidden*2]
            vae2decoder = sentence_h
            sentence_h  = torch.mean(sentence_h, dim=1)

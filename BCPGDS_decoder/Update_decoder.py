@@ -1,5 +1,6 @@
 from .Forward_Backward_augment_decoder import *
 from .Config import *
+from .Config_for_decoder import *
 from .GPU_Sampler import *
 from .PGBN_sampler import *
 #import Forward_augment
@@ -12,6 +13,7 @@ from .Utils import *
 
 def updatePhi_Pi(sweepi, X_train, Params, Data, SuperParams, MBt, Setting, W_left, W_right, epsit):
     MBObserved = (sweepi * Setting.batch_num + MBt).astype('int')
+    # import pdb; pdb.set_trace()
     train_doc_batch = Data.train_doc_split[MBt * Setting.batch_size:(MBt + 1) * Setting.batch_size]
     Batch_Sparse = Empty()
     Batch_Sparse.rows = []
@@ -34,7 +36,7 @@ def updatePhi_Pi(sweepi, X_train, Params, Data, SuperParams, MBt, Setting, W_lef
             Batch_Sparse.sen2doc.append(Doc_index)  # the document index for sentence
             Batch_Sparse.sen_len.append(len(Sen))  # the word number for each sentence
 
-        Batch_Sparse.doc_len.append(len(Doc))  # the sentence number for each doc
+        Batch_Sparse.doc_len.append(len(Doc))  # the sentence number for each doc 
 
     Batch_Sparse.max_doc_len = np.max(np.array(Batch_Sparse.doc_len))  # the max sentence number for each document
 
@@ -76,8 +78,8 @@ def updatePhi_Pi(sweepi, X_train, Params, Data, SuperParams, MBt, Setting, W_lef
     Batch_Para = np.array([Setting.K1, Setting.K1_S1, Setting.K1_S2, Setting.K1_S3, Setting.K1_S4, word_total],
                           dtype=np.int32)
 
-    block_x = 128
-    grid_x = 128
+    block_x = 64
+    grid_x = 64
     grid_y = word_total / (block_x * grid_x) + 1
 
     time_Conv = 0
@@ -191,3 +193,5 @@ def updatePhi_Pi(sweepi, X_train, Params, Data, SuperParams, MBt, Setting, W_lef
 
 
     return Params.D1_k1, Params.Pi_left, Params.Pi_right
+
+

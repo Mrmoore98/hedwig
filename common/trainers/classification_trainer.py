@@ -11,6 +11,11 @@ from models.oh_cnn_HAN.check_text import match_str
 from models.oh_cnn_HAN.loss import Loss
 from models.oh_cnn_HAN.label_smooth import LabelSmoothing
 
+from BCPGDS_decoder.Read_IMDB import Load_Data
+from BCPGDS_decoder.Config_for_decoder import decoder_setting
+from BCPGDS_decoder.Update_decoder import updatePhi_Pi
+# from BCPGDS_decoder.Config import Setting, SuperParams, Params, Data
+
 class ClassificationTrainer(Trainer):
 
     def __init__(self, model, embedding, train_loader, trainer_config, config_main, train_evaluator, test_evaluator, dev_evaluator):
@@ -22,7 +27,6 @@ class ClassificationTrainer(Trainer):
         self.iterations = 0
         self.iters_not_improved = 0
 
-        
         self.start = None
         self.model_time = 0
         self.learning_time = 0
@@ -50,6 +54,12 @@ class ClassificationTrainer(Trainer):
         self.Data=None 
         self.SuperParams=None
         self.epsit =None
+
+        if self.config_main.vae_struct:
+            #decoder
+            self.updatePhi_Pi = updatePhi_Pi
+            [self.Data, self.Setting, self.Params, self.SuperParams, self.epsit] = decoder_setting(self.config_main.decoder_dataset, self.config_main)
+
 
     def train_epoch(self, epoch):
         itmp = time.time() 
@@ -92,9 +102,11 @@ class ClassificationTrainer(Trainer):
                 else:
                     scores = self.model(batch.text[0], lengths=batch.text[1])
             if self.config_main.vae_struct and self.iterations % 50 == 1:
-                output = updatePhi_Pi(epoch, batch.text[1], self.Params, self.Data, self.SuperParams, batch_idx,
-                                      self.Setting, feature_map[:,:,:,:self.config_main.word_num_hidden],
-                                      feature_map[:,:,:,self.config_main.word_num_hidden:], self.epsit)
+                output = self.updatePhi_Pi(epoch, batch.text[1], self.Params, self.Data, self.SuperParams, batch_idx,
+                                      self.Setting, 
+                                      feature_map[:,:,:,:self.config_main.word_num_hidden].detach().cpu().numpy(),
+                                      feature_map[:,:,:,self.config_main.word_num_hidden:].detach().cpu().numpy(), 
+                                      self.epsit)
                 [self.Params.D1_k1, self.Params.Pi_left, self.Params.Pi_right] = output
 
             self.model_process_time += time.time()-model_process_time_tmp
@@ -180,13 +192,7 @@ class ClassificationTrainer(Trainer):
         dev_header = '  Time Epoch Iteration Progress     Dev/Acc. Dev/Pr.  Dev/Recall   Dev/F1       Dev/Loss'
         os.makedirs(self.model_outfile, exist_ok=True)
         os.makedirs(os.path.join(self.model_outfile, self.train_loader.dataset.NAME), exist_ok=True)
-        if self.config_main.vae_struct:
-            #decoder
-            from BCPGDS_decoder.Read_IMDB import Load_Data
-            from BCPGDS_decoder.Config_for_decoder import decoder_setting
-            from BCPGDS_decoder.Update_decoder import updatePhi_Pi
-            from BCPGDS_decoder.Config import Setting, SuperParams, Params, Data
-            [self.Data, self.Setting, self.Params, self.SuperParams, self.epsit] = decoder_setting(self.config_main.decoder_dataset, self.config_main)
+
         for epoch in range(1, epochs + 1):
             print('\n' + header)
             self.train_epoch(epoch)
